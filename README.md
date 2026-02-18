@@ -1,0 +1,1 @@
+# Al-Enabled-E-Manyata-Pranali-Digital-School-Recognition-Inspection-and-Governance-Management-System
