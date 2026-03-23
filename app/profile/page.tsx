@@ -11,6 +11,58 @@ import {
     FiSend,
     FiShield,
 } from "react-icons/fi";
+import { API_BASE_URL } from "@/lib/api";
+
+// ─── School ID — replace with your auth session value ─────────────────────────
+const SCHOOL_ID = "school_001";
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+
+async function apiPut(path: string, body: unknown): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err?.detail ?? `Error ${res.status}`);
+    }
+}
+
+async function apiPost(path: string, body: unknown): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err?.detail ?? `Error ${res.status}`);
+    }
+}
+
+async function apiDelete(path: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}${path}`, { method: "DELETE" });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err?.detail ?? `Error ${res.status}`);
+    }
+}
+
+async function uploadDocument(documentType: string, file: File): Promise<void> {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("document_type", documentType);
+    const res = await fetch(`${API_BASE_URL}/profile/upload-document?document_type=${documentType}`, {
+        method: "POST",
+        body: form,
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err?.detail ?? `Error ${res.status}`);
+    }
+}
 
 const steps = [
     "Basic Details",
@@ -828,8 +880,9 @@ export default function ProfilePage() {
         });
     };
 
-    const handleDeleteTeacher = (id: string) => {
-        setTeachers(teachers.filter(t => t.id !== id));
+    const handleDeleteTeacher = async (id: string) => {
+        setTeachers(teachers.filter(t => t.id !== id)); // optimistic
+        try { await apiDelete(`/profile/staff/teachers/${id}`); } catch { /* ignore */ }
     };
 
     const handleSaveNonTeachingStaff = () => {
@@ -853,8 +906,9 @@ export default function ProfilePage() {
         } as any);
     };
 
-    const handleDeleteNonTeachingStaff = (id: string) => {
+    const handleDeleteNonTeachingStaff = async (id: string) => {
         setNonTeachingStaff(nonTeachingStaff.filter(s => s.id !== id));
+        try { await apiDelete(`/profile/staff/non-teaching/${id}`); } catch { /* ignore */ }
     };
 
     // Student Handlers
@@ -954,9 +1008,10 @@ export default function ProfilePage() {
         setIsAddingStudent(true);
     };
 
-    const handleDeleteStudent = (id: string) => {
+    const handleDeleteStudent = async (id: string) => {
         if (confirm("Are you sure you want to delete this student profile?")) {
             setStudents(students.filter((s) => s.id !== id));
+            try { await apiDelete(`/profile/students/${id}`); } catch { /* ignore */ }
         }
     };
 
@@ -983,8 +1038,9 @@ export default function ProfilePage() {
         });
     };
 
-    const handleDeleteVocationalStaff = (id: string) => {
+    const handleDeleteVocationalStaff = async (id: string) => {
         setVocationalStaff(vocationalStaff.filter(s => s.id !== id));
+        try { await apiDelete(`/profile/staff/vocational/${id}`); } catch { /* ignore */ }
     };
 
     const [nonTeachingStaff, setNonTeachingStaff] = useState<NonTeachingStaff[]>([]);
@@ -1470,6 +1526,605 @@ export default function ProfilePage() {
 
     const progress = Math.round(((currentStep + 1) / steps.length) * 100);
 
+    // ─── API state ───────────────────────────────────────────────────────────
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+
+    const showSaveResult = (err?: string) => {
+        setSaveError(err ?? null);
+        setSaveSuccess(!err);
+        setTimeout(() => setSaveSuccess(false), 2500);
+    };
+
+    // ─── Per-step save functions (called by Save button) ─────────────────────
+
+    const saveBasicDetails = () => apiPut(`/profile/basic-details`, {
+        school_name: schoolName,
+        est_year: estYear,
+        board_affiliation: boardAffiliation,
+        std_code: stdCode,
+        landline,
+        mobile,
+        email,
+        website,
+        sub_management: subManagement,
+        is_pm_shri: isPmShri,
+        school_type: schoolType,
+        lowest_class: lowestClass,
+        highest_class: highestClass,
+        location_type: locationType,
+        management_group: managementGroup,
+        management_code: managementCode,
+        classification,
+        application_type: applicationType,
+        school_category: schoolCategory,
+        curriculum_primary: curriculumPrimary,
+        curriculum_upper_primary: curriculumUpperPrimary,
+        is_minority: isMinority,
+        minority_community: minorityCommunity,
+        is_rte: isRTE,
+        is_vocational: isVocational,
+        funding_source: fundingSource,
+        sanction_order_number: sanctionOrderNumber,
+        is_pre_vocational: isPreVocational,
+        is_skill_center: isSkillCenter,
+        is_residential: isResidential,
+        residential_type: residentialType,
+        is_shift: isShift,
+        is_mother_tongue: isMotherTongue,
+        dist_primary: distPrimary,
+        dist_upper_primary: distUpperPrimary,
+        dist_secondary: distSecondary,
+        dist_higher_secondary: distHigherSecondary,
+        is_all_weather_road: isAllWeatherRoad,
+        instructional_days: instructionalDays,
+        is_cce: isCCE,
+        is_records_maintained: isRecordsMaintained,
+        is_records_shared: isRecordsShared,
+        has_anganwadi: hasAnganwadi,
+        anganwadi_centers_count: anganwadiCentersCount,
+        anganwadi_rows: anganwadiRows,
+        has_balavatika: hasBalavatika,
+        has_oosc: hasOoSC,
+        has_oosc_st: hasOoSCST,
+        remedial_students: remedialStudents,
+        learning_enhancement_students: learningEnhancementStudents,
+        academic_inspections: academicInspections,
+        crc_visits: crcVisits,
+        brc_visits: brcVisits,
+        district_visits: districtVisits,
+        regional_visits: regionalVisits,
+        hq_visits: hqVisits,
+        has_smc: hasSMC,
+        has_sdmc: hasSDMC,
+        smc_meetings: smcMeetings,
+        has_smc_plan: hasSMCPlan,
+        smc_plan_year: smcPlanYear,
+        has_sbc: hasSBC,
+        has_ac: hasAC,
+        has_pta: hasPTA,
+        pta_meetings: ptaMeetings,
+        has_pfms: hasPFMS,
+        pfms_id: pfmsId,
+        has_multi_class: hasMultiClass,
+        multi_class_rows: multiClassRows,
+        is_school_complex: isSchoolComplex,
+        is_hub_school: isHubSchool,
+        complex_pre_primary: complexPrePrimary,
+        complex_primary: complexPrimary,
+        complex_upper_primary: complexUpperPrimary,
+        complex_secondary: complexSecondary,
+        complex_higher_secondary: complexHigherSecondary,
+        complex_total: complexTotal,
+        has_ebsb: hasEBSB,
+        has_fit_india: hasFitIndia,
+        has_holistic_report_card: hasHolisticReportCard,
+        pm_poshan_total_days: pmPoshanTotalDays,
+        pm_poshan_days_per_week: pmPoshanDaysPerWeek,
+        pm_poshan_days_per_month: pmPoshanDaysPerMonth,
+        pm_poshan_balvatika: pmPoshanBalvatika,
+        has_agreed_to_first_year_activities: hasAgreedToFirstYearActivities,
+        has_disaster_plan: hasDisasterPlan,
+        has_structural_audit: hasStructuralAudit,
+        has_non_structural_audit: hasNonStructuralAudit,
+        has_cctv: hasCCTV,
+        has_fire_extinguishers: hasFireExtinguishers,
+        has_nodal_teacher: hasNodalTeacher,
+        has_safety_training: hasSafetyTraining,
+        safety_training_date: safetyTrainingDate,
+        disaster_management_taught: disasterManagementTaught,
+        has_self_defence_grant: hasSelfDefenceGrant,
+        self_defence_upper_primary: selfDefenceUpperPrimary,
+        self_defence_secondary: selfDefenceSecondary,
+        self_defence_higher_secondary: selfDefenceHigherSecondary,
+        has_safety_display_board: hasSafetyDisplayBoard,
+        has_first_level_counselor: hasFirstLevelCounselor,
+        safety_audit_frequency: safetyAuditFrequency,
+        has_teacher_photos: hasTeacherPhotos,
+        has_vidya_pravesh: hasVidyaPravesh,
+        student_attendance_capture: studentAttendanceCapture,
+        teacher_attendance_capture: teacherAttendanceCapture,
+        has_youth_club: hasYouthClub,
+        has_eco_club: hasEcoClub,
+        has_teacher_id: hasTeacherID,
+        sssa_certification: sssaCertification,
+        has_ict_register: hasIctRegister,
+        has_sports_register: hasSportsRegister,
+        has_library_register: hasLibraryRegister,
+        ict_register_date: ictRegisterDate,
+        sports_register_date: sportsRegisterDate,
+        library_register_date: libraryRegisterDate,
+        sec_156: sec156,
+        sec_157: sec157,
+    });
+
+    const saveReceiptsExpenditure = () => apiPut(`/profile/receipts-expenditure`, {
+        exp_maintenance: expMaintenance,
+        exp_teachers: expTeachers,
+        exp_construction: expConstruction,
+        exp_others: expOthers,
+        grants: grants.map(g => ({
+            grant_name: g.grantName,
+            receipt: g.receipt,
+            expenditure: g.expenditure,
+        })),
+        assistance: assistance.map(a => ({
+            source: a.source,
+            is_received: a.isReceived,
+            name: a.name,
+            amount: a.amount,
+        })),
+    });
+
+    const saveLegalDetails = () => apiPut(`/profile/legal-details`, {
+        is_vocational: isVocational,
+        funding_source: fundingSource,
+        sanction_order_number: sanctionOrderNumber,
+        vocational_rows: vocationalRows.map(r => ({
+            grade: r.grade,
+            sector: r.sector,
+            job_role: r.jobRole,
+            year_starting: r.yearStarting,
+        })),
+    });
+
+    const saveLocation = () => apiPut(`/profile/location`, {
+        address,
+        pin_code: pinCode,
+        revenue_block: revenueBlock,
+        village_name: villageName,
+        gram_panchayat: gramPanchayat,
+        urban_local_body: urbanLocalBody,
+        ward_name: wardName,
+        crc_name: crcName,
+        assembly_constituency: assemblyConstituency,
+        parliamentary_constituency: parliamentaryConstituency,
+        district,
+        taluka,
+    });
+
+    const saveInfrastructure = () => apiPut(`/profile/infrastructure`, {
+        building_status: buildingStatus,
+        active_building_blocks: activeBuildingBlocks,
+        building_pucca: buildingPucca,
+        building_partially_pucca: buildingPartiallyPucca,
+        building_kuchcha: buildingKuchcha,
+        building_tent: buildingTent,
+        storey_single: storeySingle,
+        storey_double: storeyDouble,
+        storey_triple: storeyTriple,
+        storey_multi: storeyMulti,
+        building_dilapidated: buildingDilapidated,
+        building_under_construction: buildingUnderConstruction,
+        classrooms_pre_primary: classroomsPrePrimary,
+        classrooms_primary: classroomsPrimary,
+        classrooms_upper_primary: classroomsUpperPrimary,
+        classrooms_secondary: classroomsSecondary,
+        classrooms_higher_secondary: classroomsHigherSecondary,
+        classrooms_not_in_use: classroomsNotInUse,
+        total_instructional_rooms: totalInstructionalRooms,
+        classrooms_under_construction: classroomsUnderConstruction,
+        classrooms_dilapidated: classroomsDilapidated,
+        cond_pucca_good: condPuccaGood,
+        cond_pucca_minor: condPuccaMinor,
+        cond_pucca_major: condPuccaMajor,
+        cond_partially_pucca_good: condPartiallyPuccaGood,
+        cond_partially_pucca_minor: condPartiallyPuccaMinor,
+        cond_partially_pucca_major: condPartiallyPuccaMajor,
+        cond_kuchcha_good: condKuchchaGood,
+        cond_kuchcha_minor: condKuchchaMinor,
+        cond_kuchcha_major: condKuchchaMajor,
+        cond_tent_good: condTentGood,
+        cond_tent_minor: condTentMinor,
+        cond_tent_major: condTentMajor,
+        boundary_wall: boundaryWall,
+        has_electricity: hasElectricity,
+        classrooms_with_fans: classroomsWithFans,
+        classrooms_with_acs: classroomsWithACs,
+        classrooms_with_heaters: classroomsWithHeaters,
+        has_solar_panel: hasSolarPanel,
+        has_principal_room: hasPrincipalRoom,
+        has_library_room: hasLibraryRoom,
+        has_vice_principal_room: hasVicePrincipalRoom,
+        has_girls_common_room: hasGirlsCommonRoom,
+        has_staffroom: hasStaffroom,
+        has_co_curricular_room: hasCoCurricularRoom,
+        lab_count: labCount,
+        has_toilets: hasToilets,
+        toilet_boys_total: toiletBoysTotal,
+        toilet_boys_func: toiletBoysFunc,
+        toilet_boys_water: toiletBoysWater,
+        toilet_girls_total: toiletGirlsTotal,
+        toilet_girls_func: toiletGirlsFunc,
+        toilet_girls_water: toiletGirlsWater,
+        cwsn_boys_total: cwsnBoysTotal,
+        cwsn_boys_func: cwsnBoysFunc,
+        cwsn_boys_water: cwsnBoysWater,
+        cwsn_girls_total: cwsnGirlsTotal,
+        cwsn_girls_func: cwsnGirlsFunc,
+        cwsn_girls_water: cwsnGirlsWater,
+        urinals_boys_total: urinalsBoysTotal,
+        urinals_girls_total: urinalsGirlsTotal,
+        toilets_const_boys: toiletsConstBoys,
+        toilets_const_girls: toiletsConstGirls,
+        has_hand_washing_near_toilets: hasHandWashingNearToilets,
+        toilet_location: toiletLocation,
+        has_incinerator: hasIncinerator,
+        has_pad_vending_machine: hasPadVendingMachine,
+        has_hand_washing_before_meal: hasHandWashingBeforeMeal,
+        wash_points_count: washPointsCount,
+        water_hand_pump: waterHandPump,
+        water_protected_well: waterProtectedWell,
+        water_unprotected_well: waterUnprotectedWell,
+        water_tap_water: waterTapWater,
+        water_packaged_water: waterPackagedWater,
+        water_others: waterOthers,
+        has_water_purifier: hasWaterPurifier,
+        has_water_quality_tested: hasWaterQualityTested,
+        has_rain_water_harvesting: hasRainWaterHarvesting,
+        has_library: hasLibrary,
+        library_books: libraryBooks,
+        has_book_bank: hasBookBank,
+        book_bank_books: bookBankBooks,
+        has_reading_corner: hasReadingCorner,
+        reading_corner_books: readingCornerBooks,
+        has_full_time_librarian: hasFullTimeLibrarian,
+        subscribes_newspapers: subscribesNewspapers,
+        library_books_borrowed: libraryBooksBorrowed,
+        land_area: landArea,
+        land_area_unit: landAreaUnit,
+        has_expansion_land: hasExpansionLand,
+        expansion_type: expansionType,
+        additional_classrooms_needed: additionalClassroomsNeeded,
+        has_playground: hasPlayground,
+        playground_area: playgroundArea,
+        playground_unit: playgroundUnit,
+        has_alternate_playground: hasAlternatePlayground,
+        has_health_checkup: hasHealthCheckup,
+        health_checkups_count: healthCheckupsCount,
+        health_params_height: healthParamsHeight,
+        health_params_weight: healthParamsWeight,
+        health_params_eyes: healthParamsEyes,
+        health_params_dental: healthParamsDental,
+        health_params_throat: healthParamsThroat,
+        deworming_tablets: dewormingTablets,
+        iron_folic_tablets: ironFolicTablets,
+        maintains_health_records: maintainsHealthRecords,
+        has_thermal_scanner: hasThermalScanner,
+        has_first_aid: hasFirstAid,
+        has_essential_medicines: hasEssentialMedicines,
+        has_ramp: hasRamp,
+        has_hand_rails: hasHandRails,
+        has_special_educator: hasSpecialEducator,
+        has_kitchen_garden: hasKitchenGarden,
+        has_kitchen_shed: hasKitchenShed,
+        dustbins_classroom: dustbinsClassroom,
+        dustbins_toilets: dustbinsToilets,
+        dustbins_kitchen: dustbinsKitchen,
+        has_student_furniture: hasStudentFurniture,
+        furniture_student_count: furnitureStudentCount,
+        has_staff_quarters: hasStaffQuarters,
+        has_tinkering_lab: hasTinkeringLab,
+        atl_id: atlId,
+        has_integrated_science_lab: hasIntegratedScienceLab,
+        hostel_primary_availability: hostelPrimaryAvailability,
+        hostel_primary_boys: hostelPrimaryBoys,
+        hostel_primary_girls: hostelPrimaryGirls,
+        hostel_upper_primary_availability: hostelUpperPrimaryAvailability,
+        hostel_upper_primary_boys: hostelUpperPrimaryBoys,
+        hostel_upper_primary_girls: hostelUpperPrimaryGirls,
+        hostel_secondary_availability: hostelSecondaryAvailability,
+        hostel_secondary_boys: hostelSecondaryBoys,
+        hostel_secondary_girls: hostelSecondaryGirls,
+        hostel_higher_secondary_availability: hostelHigherSecondaryAvailability,
+        hostel_higher_secondary_boys: hostelHigherSecondaryBoys,
+        hostel_higher_secondary_girls: hostelHigherSecondaryGirls,
+        equip_audio_visual: equipAudioVisual,
+        equip_biometric: equipBiometric,
+        equip_science_kit: equipScienceKit,
+        equip_math_kit: equipMathKit,
+        has_ict_lab: hasIctLab,
+        ict_labs_count: ictLabsCount,
+        total_functional_ict_devices: totalFunctionalIctDevices,
+        has_separate_ict_lab_room: hasSeparateIctLabRoom,
+        has_samagra_ict_lab: hasSamagraIctLab,
+        samagra_ict_year: samagraIctYear,
+        is_samagra_ict_functional: isSamagraIctFunctional,
+        samagra_ict_model: samagraIctModel,
+        samagra_ict_instructor_type: samagraIctInstructorType,
+        has_internet: hasInternet,
+        internet_type: internetType,
+        internet_pedagogical: internetPedagogical,
+        has_digital_library: hasDigitalLibrary,
+        digital_library_books: digitalLibraryBooks,
+        higher_secondary_labs: higherSecondaryLabs.map(l => ({
+            name: l.name,
+            availability: l.availability,
+            separate_room: l.separateRoom,
+        })),
+        digital_equip_items: digitalEquipItems.map(d => ({
+            name: d.name,
+            total: d.total,
+            pedagogical: d.pedagogical,
+        })),
+        digital_teaching_tools: digitalTeachingTools.map(d => ({
+            name: d.name,
+            availability: d.availability,
+        })),
+    });
+
+    const saveStaff = async () => {
+        // Save staff summary counts
+        await apiPut(`/profile/staff/summary`, {
+            counts: {
+                regular: staffCounts.regular,
+                non_regular: staffCounts.nonRegular,
+                non_teaching: staffCounts.nonTeaching,
+                vocational: staffCounts.vocational,
+            },
+            required: {
+                pre_primary: staffRequired.prePrimary,
+                primary: staffRequired.primary,
+                upper_primary: staffRequired.upperPrimary,
+                secondary: staffRequired.secondary,
+                higher_secondary: staffRequired.higherSecondary,
+            },
+        });
+        // Sync teachers: add each one (server clears + repopulates on save)
+        for (const t of teachers) {
+            if (t.id && !t.id.match(/^[a-z0-9]{9}$/)) {
+                // Backend-assigned id — update
+                await apiPut(`/profile/staff/teachers/${t.id}`, mapTeacher(t));
+            } else {
+                await apiPost(`/profile/staff/teachers`, mapTeacher(t));
+            }
+        }
+        for (const s of nonTeachingStaff) {
+            if (s.id && !s.id.match(/^[a-z0-9]{9}$/)) {
+                await apiPut(`/profile/staff/non-teaching/${s.id}`, mapNonTeaching(s));
+            } else {
+                await apiPost(`/profile/staff/non-teaching`, mapNonTeaching(s));
+            }
+        }
+        for (const v of vocationalStaff) {
+            if (v.id && !v.id.match(/^[a-z0-9]{9}$/)) {
+                await apiPut(`/profile/staff/vocational/${v.id}`, mapVocational(v));
+            } else {
+                await apiPost(`/profile/staff/vocational`, mapVocational(v));
+            }
+        }
+    };
+
+    const saveSafety = () => apiPut(`/profile/safety`, {
+        has_disaster_plan: hasDisasterPlan,
+        has_structural_audit: hasStructuralAudit,
+        has_non_structural_audit: hasNonStructuralAudit,
+        has_cctv: hasCCTV,
+        has_fire_extinguishers: hasFireExtinguishers,
+        has_nodal_teacher: hasNodalTeacher,
+        has_safety_training: hasSafetyTraining,
+        safety_training_date: safetyTrainingDate,
+        disaster_management_taught: disasterManagementTaught,
+        has_self_defence_grant: hasSelfDefenceGrant,
+        self_defence_upper_primary: selfDefenceUpperPrimary,
+        self_defence_secondary: selfDefenceSecondary,
+        self_defence_higher_secondary: selfDefenceHigherSecondary,
+        has_safety_display_board: hasSafetyDisplayBoard,
+        has_first_level_counselor: hasFirstLevelCounselor,
+        safety_audit_frequency: safetyAuditFrequency,
+    });
+
+    const saveStudentCapacity = async () => {
+        await apiPut(`/profile/student-capacity/sections`, sectionConfigs.map(c => ({
+            class_name: c.className,
+            number_of_sections: c.numberOfSections,
+            section_names: c.sectionNames,
+        })));
+        for (const s of students) {
+            if (s.id && !s.id.match(/^[a-z0-9]{9}$/)) {
+                await apiPut(`/profile/students/${s.id}`, mapStudent(s));
+            } else {
+                await apiPost(`/profile/students`, mapStudent(s));
+            }
+        }
+    };
+
+    const saveVocationalEducation = () => apiPut(`/profile/vocational-education`, {
+        vocational_guest_lecturers: vocationalGuestLecturers,
+        vocational_industry_visits: vocationalIndustryVisits,
+        vocational_industry_linkages: vocationalIndustryLinkages,
+        plac_enrolled_10: placEnrolled10,
+        plac_passed_10: placPassed10,
+        plac_self_emp_10: placSelfEmp10,
+        plac_placed_10: placPlaced10,
+        plac_enrolled_12: placEnrolled12,
+        plac_passed_12: placPassed12,
+        plac_self_emp_12: placSelfEmp12,
+        plac_placed_12: placPlaced12,
+        vocational_labs: vocationalLabs.map(l => ({
+            sector: l.sector,
+            condition: l.condition,
+            separate_room: l.separateRoom,
+        })),
+    });
+
+    // ─── Step → save function map ─────────────────────────────────────────────
+    const stepSaveFns: (() => Promise<void>)[] = [
+        saveBasicDetails,          // 0 Basic Details
+        saveReceiptsExpenditure,   // 1 Receipts and Expenditure
+        saveLegalDetails,          // 2 Legal Details
+        saveLocation,              // 3 Location
+        saveInfrastructure,        // 4 Infrastructure
+        saveStaff,                 // 5 Staff
+        saveSafety,                // 6 Safety
+        saveStudentCapacity,       // 7 Student Capacity
+        saveVocationalEducation,   // 8 Vocational Education
+    ];
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        setSaveError(null);
+        try {
+            await stepSaveFns[currentStep]();
+            showSaveResult();
+        } catch (e: unknown) {
+            showSaveResult(e instanceof Error ? e.message : "Save failed");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Save current step then advance
+    const handleNext = async () => {
+        if (!validateStep(currentStep)) return;
+        setIsSaving(true);
+        setSaveError(null);
+        try {
+            await stepSaveFns[currentStep]();
+        } catch (e: unknown) {
+            setSaveError(e instanceof Error ? e.message : "Save failed");
+            setIsSaving(false);
+            return; // Don't advance if save failed
+        }
+        setIsSaving(false);
+        setCurrentStep((s) => Math.min(s + 1, steps.length - 1));
+        window.scrollTo(0, 0);
+    };
+
+    // Final submit — save all steps then POST /profile/submit
+    const handleSubmit = async () => {
+        setIsSaving(true);
+        setSaveError(null);
+        try {
+            // Save current (last) step first
+            await stepSaveFns[currentStep]();
+            // Then call full submit endpoint
+            await apiPost(`/profile/submit`, {});
+            showSaveResult();
+            alert("Profile submitted successfully! ✅");
+        } catch (e: unknown) {
+            setSaveError(e instanceof Error ? e.message : "Submit failed");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // ─── Payload mappers (camelCase UI → snake_case API) ─────────────────────
+
+    const mapTeacher = (t: TeacherDetail) => ({
+        name: t.name, gender: t.gender, dob: t.dob,
+        social_category: t.socialCategory, is_cwsn: t.isCWSN, disability: t.disability,
+        academic_level: t.academicLevel, academic_degree: t.academicDegree,
+        professional_qual: t.professionalQual, national_code: t.nationalCode,
+        teacher_code_state: t.teacherCodeState, mobile: t.mobile, email: t.email,
+        aadhaar_number: t.aadhaarNumber, aadhaar_name: t.aadhaarName, crr_number: t.crrNumber,
+        subject_level_math: t.subjectLevelMath, subject_level_science: t.subjectLevelScience,
+        subject_level_english: t.subjectLevelEnglish,
+        subject_level_social_science: t.subjectLevelSocialScience,
+        subject_level_language: t.subjectLevelLanguage,
+        nature_of_appointment: t.natureOfAppointment, teacher_type: t.teacherType,
+        appointed_level: t.appointedLevel, classes_taught: t.classesTaught,
+        date_joining_service: t.dateJoiningService,
+        date_joining_present_school: t.dateJoiningPresentSchool,
+        appointed_for_subject: t.appointedForSubject,
+        main_subject_1: t.mainSubject1, main_subject_2: t.mainSubject2,
+        is_deputation: t.isDeputation, is_guest_contractual: t.isGuestContractual,
+        training_needed: t.trainingNeeded, training_received: t.trainingReceived,
+        languages: t.languages,
+        hs_mastery_physics: t.hsMasteryPhysics, hs_mastery_chemistry: t.hsMasteryChemistry,
+        hs_mastery_biology: t.hsMasteryBiology, hs_mastery_math: t.hsMasteryMath,
+        trained_cwsn: t.trainedCWSN, trained_computer: t.trainedComputer,
+        is_nishtha_trained: t.isNishthaTrained, non_teaching_days: t.nonTeachingDays,
+        trained_safety: t.trainedSafety, trained_cyber_safety: t.trainedCyberSafety,
+        trained_cwsn_identification: t.trainedCWSNIdentification,
+        is_tet_qualified: t.isTETQualified, tet_year: t.tetYear,
+        is_capable_digital: t.isCapableDigital,
+    });
+
+    const mapNonTeaching = (s: NonTeachingStaff) => ({
+        name: s.name, gender: s.gender, dob: s.dob,
+        state_code: s.stateCode, social_category: s.socialCategory,
+        academic_level: s.academicLevel, degree: s.degree,
+        mobile: s.mobile, email: s.email,
+        aadhaar_number: s.aadhaarNumber, aadhaar_name: s.aadhaarName,
+        disability: s.disability, nature_of_appointment: s.natureOfAppointment,
+        date_joining_service: s.dateJoiningService,
+        date_joining_school: s.dateJoiningSchool, current_post: s.currentPost,
+    });
+
+    const mapVocational = (v: VocationalStaff) => ({
+        name: v.name, gender: v.gender, dob: v.dob,
+        vtp_code: v.vtpCode, social_category: v.socialCategory,
+        academic_level: v.academicLevel, degree: v.degree,
+        professional_qual: v.professionalQual,
+        mobile: v.mobile, email: v.email,
+        aadhaar_number: v.aadhaarNumber, aadhaar_name: v.aadhaarName,
+        disability: v.disability, nature_of_appointment: v.natureOfAppointment,
+        date_joining_service: v.dateJoiningService,
+        date_joining_school: v.dateJoiningSchool,
+        type_of_teacher: v.typeOfTeacher, classes_taught: v.classesTaught,
+        sector: v.sector, job_role: v.jobRole, experience: v.experience,
+        received_induction: v.receivedInduction,
+    });
+
+    const mapStudent = (s: StudentProfile) => ({
+        name: s.name, gender: s.gender, dob: s.dob,
+        mother_name: s.motherName, father_name: s.fatherName, guardian_name: s.guardianName,
+        aadhaar_number: s.aadhaarNumber, aadhaar_name: s.aadhaarName,
+        address: s.address, pincode: s.pincode, mobile: s.mobile,
+        alternate_mobile: s.alternateMobile, email: s.email,
+        mother_tongue: s.motherTongue, social_category: s.socialCategory,
+        minority_group: s.minorityGroup, is_bpl: s.isBPL, is_aay: s.isAAY,
+        is_ews: s.isEWS, is_cwsn: s.isCWSN, impairment_type: s.impairmentType,
+        has_disability_certificate: s.hasDisabilityCertificate,
+        is_indian_national: s.isIndianNational, out_of_school_child: s.outOfSchoolChild,
+        mainstreaming_year: s.mainstreamingYear, blood_group: s.bloodGroup,
+        academic_year: s.academicYear, school_udise_code: s.schoolUdiseCode,
+        student_grade: s.studentGrade, student_national_code: s.studentNationalCode,
+        student_section: s.studentSection, roll_number: s.rollNumber,
+        admission_number: s.admissionNumber, admission_date: s.admissionDate,
+        instruction_medium: s.instructionMedium, language_group: s.languageGroup,
+        academic_stream: s.academicStream, prev_year_status: s.prevYearStatus,
+        prev_year_grade: s.prevYearGrade, is_admitted_rte: s.isAdmittedRTE,
+        rte_amount_claimed: s.rteAmountClaimed, prev_class_result: s.prevClassResult,
+        prev_class_marks: s.prevClassMarks, prev_year_attendance: s.prevYearAttendance,
+        has_facilities: s.hasFacilities, facilities_received: s.facilitiesReceived,
+        has_cwsn_facilities: s.hasCWSNFacilities, cwsn_facilities_received: s.cwsnFacilitiesReceived,
+        screened_sld: s.screenedSLD, sld_type: s.sldType,
+        screened_asd: s.screenedASD, screened_adhd: s.screenedADHD,
+        is_gifted: s.isGifted, appeared_competitions: s.appearedCompetitions,
+        participates_ncc: s.participatesNCC, digital_capable: s.digitalCapable,
+        height: s.height, weight: s.weight,
+        distance_to_school: s.distanceToSchool, guardian_education: s.guardianEducation,
+        undertook_vocational: s.undertookVocational, vocational_trade: s.vocationalTrade,
+        vocational_job_role: s.vocationalJobRole,
+        vocational_prev_class_exam: s.vocationalPrevClassExam,
+        vocational_prev_class_marks: s.vocationalPrevClassMarks,
+        current_year_result: s.currentYearResult, current_year_marks: s.currentYearMarks,
+        current_year_attendance: s.currentYearAttendance,
+    });
+
     useEffect(() => {
         if (applicationType === "New Recognition") {
             setAcademicInspections("0");
@@ -1640,11 +2295,8 @@ export default function ProfilePage() {
         return true;
     };
 
-    const next = () => {
-        if (!validateStep(currentStep)) return;
-        setCurrentStep((s) => Math.min(s + 1, steps.length - 1));
-        window.scrollTo(0, 0);
-    };
+    // next is now handleNext (defined above with API save)
+    const next = handleNext;
     const prev = () => {
         setCurrentStep((s) => Math.max(s - 1, 0));
         window.scrollTo(0, 0);
@@ -6877,104 +7529,37 @@ export default function ProfilePage() {
                     )
                 }
 
-                {/* Step 10: Transportation Details */}
-                {currentStep === 9 && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div>
-                            <h3 className="text-lg font-semibold text-neutral-800 mb-4 pb-2 border-b border-neutral-100">Transportation Details</h3>
-                            
-                            <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-5 space-y-6">
-                                <h4 className="font-semibold text-neutral-700">Vehicle Compliance & Drivers</h4>
-                                
-                                <SelectField 
-                                    label="1. All vehicles owned or managed by the school, such as school bus, van, etc., providing transportation to and from school/ or on school duty has fitness certificate. (M)" 
-                                    value={transFitnessCert} onChange={(e) => setTransFitnessCert(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="2. The vehicle should not exceed 15 years from the date of registration. (M)" 
-                                    value={transVehicleAge} onChange={(e) => setTransVehicleAge(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="3. The vehicle must have a permit as per section 74 of the Motor Vehicle Act, 1988 (M)" 
-                                    value={transPermit} onChange={(e) => setTransPermit(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="4. Speed governor must be installed allowing a maximum speed of 40 kmph. (M)" 
-                                    value={transSpeedGovernor} onChange={(e) => setTransSpeedGovernor(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="5. Vehicle exterior of school buses, vans conform to the RTO norms on appearance (M)" 
-                                    value={transVehicleExterior} onChange={(e) => setTransVehicleExterior(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="6. 'SCHOOL BUS' is prominently written on the back and front of every bus carrying school children and (M)" 
-                                    value={transSchoolBusProminent} onChange={(e) => setTransSchoolBusProminent(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="7. If it is a hired bus, 'ON SCHOOL DUTY' is prominently displayed. (M)" 
-                                    value={transHiredBusDuty} onChange={(e) => setTransHiredBusDuty(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="8. School's name and telephone number is written on the bus. (M)" 
-                                    value={transSchoolNameWritten} onChange={(e) => setTransSchoolNameWritten(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="9. Every driver used has a minimum of 5 years of experience of driving heavy vehicles or minimum of 4 years of having a Light Motor Vehicle license for driving a transport vehicle. (M)" 
-                                    value={transDriverExperience} onChange={(e) => setTransDriverExperience(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="10. Drivers do not have any previous record of traffic offences. (M)" 
-                                    value={transDriverNoTrafficOffences} onChange={(e) => setTransDriverNoTrafficOffences(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                            </div>
-
-                            <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-5 mt-6 space-y-6">
-                                <h4 className="font-semibold text-neutral-700">Autorickshaws Safety</h4>
-
-                                <SelectField 
-                                    label="28. The concerned authority has ensured safety of children coming to school in autorickshaws (M)" 
-                                    value={transAutoSafety} onChange={(e) => setTransAutoSafety(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="29. The school has instructed parents to ensure that number of children in autos they hire are limited to the number as per RTO Rule (M)" 
-                                    value={transAutoParentInstruction} onChange={(e) => setTransAutoParentInstruction(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                                <SelectField 
-                                    label="30. Autos are registered and drivers' details are maintained (M)" 
-                                    value={transAutoRegistered} onChange={(e) => setTransAutoRegistered(e.target.value)} options={["Yes", "No"]} required 
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* Navigation Buttons */}
                 <div className="flex flex-wrap items-center justify-between mt-8 pt-6 border-t border-neutral-100 gap-3">
                     <button
                         suppressHydrationWarning
                         onClick={prev}
-                        disabled={currentStep === 0}
+                        disabled={currentStep === 0 || isSaving}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                         <FiChevronLeft size={16} /> Previous
                     </button>
 
                     <div className="flex gap-3">
-                        <button suppressHydrationWarning className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors">
+                        <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors">
                             <FiSave size={16} /> Save
                         </button>
 
                         {currentStep === steps.length - 1 ? (
-                            <button suppressHydrationWarning className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-colors">
+                            <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-colors">
                                 <FiSend size={16} /> Submit
                             </button>
                         ) : (
                             <button
                                 suppressHydrationWarning
                                 onClick={next}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 shadow-md shadow-primary-600/20 transition-colors"
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 shadow-md shadow-primary-600/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Next <FiChevronRight size={16} />
+                                {isSaving ? (
+                                    <span className="w-4 h-4 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+                                ) : null}
+                                {isSaving ? "Saving…" : "Next"} {!isSaving && <FiChevronRight size={16} />}
                             </button>
                         )}
                     </div>
