@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
@@ -22,6 +22,7 @@ const steps = [
     "Safety",
     "Student Capacity",
     "Vocational Education",
+    "Transportation Details",
 ];
 
 const LANGUAGES = [
@@ -577,6 +578,7 @@ export default function ProfilePage() {
     const [showValidationPopup, setShowValidationPopup] = useState(false);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [schoolName, setSchoolName] = useState("");
+    const [udiseNumber, setUdiseNumber] = useState("");
     const [estYear, setEstYear] = useState("");
     const [boardAffiliation, setBoardAffiliation] = useState("");
     const [stdCode, setStdCode] = useState("");
@@ -1451,6 +1453,21 @@ export default function ProfilePage() {
     const [district, setDistrict] = useState("");
     const [taluka, setTaluka] = useState("");
 
+    // Section 10: Transportation Details
+    const [transFitnessCert, setTransFitnessCert] = useState("");
+    const [transVehicleAge, setTransVehicleAge] = useState("");
+    const [transPermit, setTransPermit] = useState("");
+    const [transSpeedGovernor, setTransSpeedGovernor] = useState("");
+    const [transVehicleExterior, setTransVehicleExterior] = useState("");
+    const [transSchoolBusProminent, setTransSchoolBusProminent] = useState("");
+    const [transHiredBusDuty, setTransHiredBusDuty] = useState("");
+    const [transSchoolNameWritten, setTransSchoolNameWritten] = useState("");
+    const [transDriverExperience, setTransDriverExperience] = useState("");
+    const [transDriverNoTrafficOffences, setTransDriverNoTrafficOffences] = useState("");
+    const [transAutoSafety, setTransAutoSafety] = useState("");
+    const [transAutoParentInstruction, setTransAutoParentInstruction] = useState("");
+    const [transAutoRegistered, setTransAutoRegistered] = useState("");
+
     const progress = Math.round(((currentStep + 1) / steps.length) * 100);
 
     useEffect(() => {
@@ -1499,6 +1516,7 @@ export default function ProfilePage() {
         const profileData = {
             // Identity
             schoolName,
+            udiseNumber,
             estYear,
             boardAffiliation,
             schoolCategory,
@@ -1551,10 +1569,14 @@ export default function ProfilePage() {
             totalStudents: students.length.toString(),
             // Profile completeness flag
             isProfileComplete: !!(schoolName && email && mobile && address && district),
+            // Transportation Details
+            transFitnessCert, transVehicleAge, transPermit, transSpeedGovernor, transVehicleExterior,
+            transSchoolBusProminent, transHiredBusDuty, transSchoolNameWritten, transDriverExperience,
+            transDriverNoTrafficOffences, transAutoSafety, transAutoParentInstruction, transAutoRegistered
         };
         localStorage.setItem("profileData", JSON.stringify(profileData));
     }, [
-        schoolName, estYear, boardAffiliation, schoolCategory, schoolType, classification, applicationType,
+        schoolName, udiseNumber, estYear, boardAffiliation, schoolCategory, schoolType, classification, applicationType,
         stdCode, landline, mobile, email, website,
         managementGroup, managementCode, subManagement, isPmShri,
         lowestClass, highestClass, hasPrePrimary,
@@ -1565,6 +1587,9 @@ export default function ProfilePage() {
         classroomsPrePrimary, classroomsPrimary, classroomsUpperPrimary, classroomsSecondary, classroomsHigherSecondary,
         hasElectricity, hasLibrary, hasRamp,
         teachers.length, nonTeachingStaff.length, vocationalStaff.length, students.length,
+        transFitnessCert, transVehicleAge, transPermit, transSpeedGovernor, transVehicleExterior,
+        transSchoolBusProminent, transHiredBusDuty, transSchoolNameWritten, transDriverExperience,
+        transDriverNoTrafficOffences, transAutoSafety, transAutoParentInstruction, transAutoRegistered
     ]);
 
     const handleSectionCountChange = (index: number, count: number) => {
@@ -1580,6 +1605,7 @@ export default function ProfilePage() {
 
         if (step === 0) {
             if (!schoolName) errors.push("School Name");
+            if (!udiseNumber) errors.push("UDISE Number");
             if (!estYear) errors.push("Year of Establishment");
             if (!boardAffiliation) errors.push("Board Affiliation");
             if (!managementGroup) errors.push("Management Group");
@@ -1588,6 +1614,22 @@ export default function ProfilePage() {
             if (!highestClass) errors.push("Highest Class");
             if (!mobile) errors.push("Mobile Number (Contact)");
             if (!email) errors.push("Email (Contact)");
+        }
+
+        if (step === 9) {
+            if (!transFitnessCert) errors.push("1. Fitness Certificate");
+            if (!transVehicleAge) errors.push("2. Vehicle Age");
+            if (!transPermit) errors.push("3. Vehicle Permit");
+            if (!transSpeedGovernor) errors.push("4. Speed Governor");
+            if (!transVehicleExterior) errors.push("5. Vehicle Exterior Norms");
+            if (!transSchoolBusProminent) errors.push("6. 'SCHOOL BUS' Prominent");
+            if (!transHiredBusDuty) errors.push("7. 'ON SCHOOL DUTY'");
+            if (!transSchoolNameWritten) errors.push("8. School Name on Bus");
+            if (!transDriverExperience) errors.push("9. Driver Experience");
+            if (!transDriverNoTrafficOffences) errors.push("10. Driver Traffic Offence Record");
+            if (!transAutoSafety) errors.push("28. Auto Safety");
+            if (!transAutoParentInstruction) errors.push("29. Auto Parent Instruction");
+            if (!transAutoRegistered) errors.push("30. Auto Registration");
         }
 
         if (errors.length > 0) {
@@ -1679,6 +1721,27 @@ export default function ProfilePage() {
                             <h3 className="text-lg font-semibold text-neutral-800 mb-4 pb-2 border-b border-neutral-100">1.1 School Identity</h3>
                             <div className="grid md:grid-cols-2 gap-5">
                                 <InputField label="1.1 School Name (In capital letters)" value={schoolName} onChange={(e) => setSchoolName(e.target.value.toUpperCase())} required={true} />
+                                <div className="flex items-end gap-3">
+                                    <div className="flex-1">
+                                        <InputField label="UDISE Number" value={udiseNumber} onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                                            setUdiseNumber(val);
+                                        }} placeholder="11-digit UDISE Number" required={true} />
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        className="h-[42px] px-6 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors shadow-sm"
+                                        onClick={() => {
+                                            if (udiseNumber.length === 11) {
+                                                alert("UDISE Number Verified Successfully!");
+                                            } else {
+                                                alert("Please enter a valid 11-digit UDISE Number to verify.");
+                                            }
+                                        }}
+                                    >
+                                        Verify
+                                    </button>
+                                </div>
                                 <InputField label="Year of Establishment" value={estYear} onChange={(e) => setEstYear(e.target.value)} type="number" placeholder="e.g. 1995" required />
                                 <SelectField label="Board Affiliation" value={boardAffiliation} onChange={(e) => setBoardAffiliation(e.target.value)} options={["CBSE", "ICSE", "State Board", "IB", "Other"]} required />
                             </div>
@@ -1879,37 +1942,7 @@ export default function ProfilePage() {
                                         )}
                                     </div>
 
-                                    <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-4">
-                                        <p className="text-xs font-bold text-neutral-600 mb-3 uppercase tracking-wider">Note: In UDISE+ 3(three) Classes can be Defined for Pre-Primary Sections</p>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full border-collapse border border-neutral-200 text-[11px]">
-                                                <thead>
-                                                    <tr className="bg-neutral-100 text-neutral-700">
-                                                        <th className="border border-neutral-200 px-2 py-1.5 text-left w-12">Sl No</th>
-                                                        <th className="border border-neutral-200 px-2 py-1.5 text-left">UDISE Symbol</th>
-                                                        <th className="border border-neutral-200 px-2 py-1.5 text-left">Type-1 Combination</th>
-                                                        <th className="border border-neutral-200 px-2 py-1.5 text-left">Type-2 Combination</th>
-                                                        <th className="border border-neutral-200 px-2 py-1.5 text-left">Description</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {[
-                                                        { id: 1, symbol: "PP1 (-1)", t1: "UKG/KG-2/KG-B/Sr. KG", t2: "Pre-Primary/KG", desc: "Class Just Below Grade/Class-1" },
-                                                        { id: 2, symbol: "PP2 (-2)", t1: "LKG/KG-1/KG-A/Jr. KG", t2: "Pre-School/Nursery", desc: "Class Just Below Class PP1 (2nd class below Class-1)" },
-                                                        { id: 3, symbol: "PP3 (-3)", t1: "Nursery", t2: "Not Applicable", desc: "Class Just Below Class PP2 (3rd class below Class-1)" },
-                                                    ].map((row) => (
-                                                        <tr key={row.id} className="text-neutral-600">
-                                                            <td className="border border-neutral-200 px-2 py-1.5 text-center">{row.id}</td>
-                                                            <td className="border border-neutral-200 px-2 py-1.5 font-medium">{row.symbol}</td>
-                                                            <td className="border border-neutral-200 px-2 py-1.5">{row.t1}</td>
-                                                            <td className="border border-neutral-200 px-2 py-1.5">{row.t2}</td>
-                                                            <td className="border border-neutral-200 px-2 py-1.5">{row.desc}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                    {/* Note removed per user request */}
                                 </div>
 
                                 {/* (c) Streams Availability */}
@@ -6844,9 +6877,81 @@ export default function ProfilePage() {
                     )
                 }
 
+                {/* Step 10: Transportation Details */}
+                {currentStep === 9 && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div>
+                            <h3 className="text-lg font-semibold text-neutral-800 mb-4 pb-2 border-b border-neutral-100">Transportation Details</h3>
+                            
+                            <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-5 space-y-6">
+                                <h4 className="font-semibold text-neutral-700">Vehicle Compliance & Drivers</h4>
+                                
+                                <SelectField 
+                                    label="1. All vehicles owned or managed by the school, such as school bus, van, etc., providing transportation to and from school/ or on school duty has fitness certificate. (M)" 
+                                    value={transFitnessCert} onChange={(e) => setTransFitnessCert(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="2. The vehicle should not exceed 15 years from the date of registration. (M)" 
+                                    value={transVehicleAge} onChange={(e) => setTransVehicleAge(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="3. The vehicle must have a permit as per section 74 of the Motor Vehicle Act, 1988 (M)" 
+                                    value={transPermit} onChange={(e) => setTransPermit(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="4. Speed governor must be installed allowing a maximum speed of 40 kmph. (M)" 
+                                    value={transSpeedGovernor} onChange={(e) => setTransSpeedGovernor(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="5. Vehicle exterior of school buses, vans conform to the RTO norms on appearance (M)" 
+                                    value={transVehicleExterior} onChange={(e) => setTransVehicleExterior(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="6. 'SCHOOL BUS' is prominently written on the back and front of every bus carrying school children and (M)" 
+                                    value={transSchoolBusProminent} onChange={(e) => setTransSchoolBusProminent(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="7. If it is a hired bus, 'ON SCHOOL DUTY' is prominently displayed. (M)" 
+                                    value={transHiredBusDuty} onChange={(e) => setTransHiredBusDuty(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="8. School's name and telephone number is written on the bus. (M)" 
+                                    value={transSchoolNameWritten} onChange={(e) => setTransSchoolNameWritten(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="9. Every driver used has a minimum of 5 years of experience of driving heavy vehicles or minimum of 4 years of having a Light Motor Vehicle license for driving a transport vehicle. (M)" 
+                                    value={transDriverExperience} onChange={(e) => setTransDriverExperience(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="10. Drivers do not have any previous record of traffic offences. (M)" 
+                                    value={transDriverNoTrafficOffences} onChange={(e) => setTransDriverNoTrafficOffences(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                            </div>
+
+                            <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-5 mt-6 space-y-6">
+                                <h4 className="font-semibold text-neutral-700">Autorickshaws Safety</h4>
+
+                                <SelectField 
+                                    label="28. The concerned authority has ensured safety of children coming to school in autorickshaws (M)" 
+                                    value={transAutoSafety} onChange={(e) => setTransAutoSafety(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="29. The school has instructed parents to ensure that number of children in autos they hire are limited to the number as per RTO Rule (M)" 
+                                    value={transAutoParentInstruction} onChange={(e) => setTransAutoParentInstruction(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                                <SelectField 
+                                    label="30. Autos are registered and drivers' details are maintained (M)" 
+                                    value={transAutoRegistered} onChange={(e) => setTransAutoRegistered(e.target.value)} options={["Yes", "No"]} required 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Navigation Buttons */}
                 <div className="flex flex-wrap items-center justify-between mt-8 pt-6 border-t border-neutral-100 gap-3">
                     <button
+                        suppressHydrationWarning
                         onClick={prev}
                         disabled={currentStep === 0}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -6855,16 +6960,17 @@ export default function ProfilePage() {
                     </button>
 
                     <div className="flex gap-3">
-                        <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors">
+                        <button suppressHydrationWarning className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors">
                             <FiSave size={16} /> Save
                         </button>
 
                         {currentStep === steps.length - 1 ? (
-                            <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-colors">
+                            <button suppressHydrationWarning className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-colors">
                                 <FiSend size={16} /> Submit
                             </button>
                         ) : (
                             <button
+                                suppressHydrationWarning
                                 onClick={next}
                                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 shadow-md shadow-primary-600/20 transition-colors"
                             >

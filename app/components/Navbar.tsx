@@ -47,13 +47,13 @@ export default function Navbar() {
                     {/* Desktop Buttons */}
                     <div className="hidden md:flex items-center gap-3">
                         <a
-                            href="#"
+                            href="/login"
                             className="px-5 py-2 text-sm font-semibold text-primary-700 border border-primary-300 rounded-lg hover:bg-primary-50 transition-all duration-200"
                         >
                             Login
                         </a>
                         <a
-                            href="#"
+                            href="/signup"
                             className="px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-primary-700 to-primary-500 rounded-lg hover:from-primary-800 hover:to-primary-600 shadow-md hover:shadow-lg transition-all duration-200"
                         >
                             Register
@@ -89,13 +89,13 @@ export default function Navbar() {
                     ))}
                     <div className="flex gap-3 pt-3">
                         <a
-                            href="#"
+                            href="/login"
                             className="flex-1 text-center px-4 py-2.5 text-sm font-semibold text-primary-700 border border-primary-300 rounded-lg hover:bg-primary-50 transition"
                         >
                             Login
                         </a>
                         <a
-                            href="#"
+                            href="/signup"
                             className="flex-1 text-center px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-primary-700 to-primary-500 rounded-lg hover:from-primary-800 hover:to-primary-600 transition"
                         >
                             Register
