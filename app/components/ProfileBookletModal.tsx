@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
     X, Building2, Receipt, Scale, MapPin, Wrench, Users, 
-    ShieldAlert, GraduationCap, BookOpen, Bus, CheckCircle2 
+    ShieldAlert, GraduationCap, BookOpen, Bus, CheckCircle2,
+    Maximize2, Minimize2
 } from "lucide-react";
+
+
 import { cn } from "@/lib/utils";
+import RequestChangesModal from "./admin/RequestChangesModal";
+
 
 interface ProfileBookletModalProps {
     isOpen: boolean;
@@ -670,8 +675,8 @@ function DataGrid({ title, items }: { title?: string, items: { label: string, va
                 {items.map((item, i) => (
                     <div key={i} className="flex flex-col sm:flex-row sm:items-start justify-between px-6 py-4 hover:bg-slate-50/40 transition-colors gap-4">
                         <span className="text-sm font-medium text-slate-500 sm:w-1/2 mt-0.5">{item.label}</span>
-                        <div className="text-sm font-semibold text-slate-800 sm:w-1/2 sm:text-right flex items-center sm:justify-end gap-2">
-                           {item.value === "Yes" ? <span className="text-emerald-600 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Yes</span> : item.value}
+                        <div className="text-sm font-semibold text-slate-800 sm:w-1/2 sm:text-right flex items-center sm:justify-end gap-2 text-right">
+                           {item.value === "Yes" ? <span className="text-emerald-600 flex items-center gap-1.5 justify-end"><CheckCircle2 className="w-4 h-4" /> Yes</span> : item.value || "Not Provided"}
                         </div>
                     </div>
                 ))}
@@ -680,207 +685,315 @@ function DataGrid({ title, items }: { title?: string, items: { label: string, va
     );
 }
 
-function DataRenderer({ sectionId }: { sectionId: string }) {
+function DataRenderer({ sectionId, data }: { sectionId: string, data: typeof mockData }) {
     switch (sectionId) {
         case "basic": return (
             <>
-                <DataGrid title="School Identity" items={mockData.basic.identity} />
-                <DataGrid title="School Contact Details" items={mockData.basic.contact} />
-                <DataGrid title="Management & Classification" items={mockData.basic.management} />
-                <DataGrid title="Class Range" items={mockData.basic.classRange} />
-                <DataGrid title="Curriculum Details" items={mockData.basic.curriculum} />
-                <DataGrid title="School Profile" items={mockData.basic.schoolProfile} />
-                <DataGrid title="Distance to Nearest Schools" items={mockData.basic.distances} />
-                <DataGrid title="Operational Details" items={mockData.basic.operational} />
-                <DataGrid title="Anganwadi / Balavatika" items={mockData.basic.anganwadi} />
-                <DataGrid title="Special Programs" items={mockData.basic.specialPrograms} />
-                <DataGrid title="Academic Inspections & Visits" items={mockData.basic.inspections} />
-                <DataGrid title="School Governance" items={mockData.basic.governance} />
-                <DataGrid title="Financial Registration" items={mockData.basic.financial} />
-                <DataGrid title="Multi-Class Teaching" items={mockData.basic.multiClass} />
-                <DataGrid title="School Complex Details" items={mockData.basic.schoolComplex} />
-                <DataGrid title="Government Initiatives" items={mockData.basic.initiatives} />
-                <DataGrid title="PM POSHAN (Mid-Day Meal)" items={mockData.basic.pmPoshan} />
-                <DataGrid title="Attendance Capture" items={mockData.basic.attendance} />
-                <DataGrid title="Clubs & Certifications" items={mockData.basic.clubs} />
+                <DataGrid title="School Identity" items={data.basic.identity} />
+                <DataGrid title="School Contact Details" items={data.basic.contact} />
+                <DataGrid title="Management & Classification" items={data.basic.management} />
+                <DataGrid title="Class Range" items={data.basic.classRange} />
+                <DataGrid title="Curriculum Details" items={data.basic.curriculum} />
+                <DataGrid title="School Profile" items={data.basic.schoolProfile} />
+                <DataGrid title="Distance to Nearest Schools" items={data.basic.distances} />
+                <DataGrid title="Operational Details" items={data.basic.operational} />
+                <DataGrid title="Anganwadi / Balavatika" items={data.basic.anganwadi} />
+                <DataGrid title="Special Programs" items={data.basic.specialPrograms} />
+                <DataGrid title="Academic Inspections & Visits" items={data.basic.inspections} />
+                <DataGrid title="School Governance" items={data.basic.governance} />
+                <DataGrid title="Financial Registration" items={data.basic.financial} />
+                <DataGrid title="Multi-Class Teaching" items={data.basic.multiClass} />
+                <DataGrid title="School Complex Details" items={data.basic.schoolComplex} />
+                <DataGrid title="Government Initiatives" items={data.basic.initiatives} />
+                <DataGrid title="PM POSHAN (Mid-Day Meal)" items={data.basic.pmPoshan} />
+                <DataGrid title="Attendance Capture" items={data.basic.attendance} />
+                <DataGrid title="Clubs & Certifications" items={data.basic.clubs} />
             </>
         );
         case "receipts": return (
             <>
-                <DataGrid title="Grants – Receipt & Expenditure" items={mockData.receipts.grants} />
-                <DataGrid title="Non-Government Financial Assistance" items={mockData.receipts.assistance} />
-                <DataGrid title="Asset / Stock Registers" items={mockData.receipts.assets} />
-                <DataGrid title="Annual Expenditure Summary" items={mockData.receipts.expenditure} />
+                <DataGrid title="Grants – Receipt & Expenditure" items={data.receipts.grants} />
+                <DataGrid title="Non-Government Financial Assistance" items={data.receipts.assistance} />
+                <DataGrid title="Asset / Stock Registers" items={data.receipts.assets} />
+                <DataGrid title="Annual Expenditure Summary" items={data.receipts.expenditure} />
             </>
         );
         case "legal": return (
             <>
-                <DataGrid title="Registration & Ownership" items={mockData.legal.details} />
-                <DataGrid title="Land & Playground Configuration" items={mockData.legal.land} />
+                <DataGrid title="Registration & Ownership" items={data.legal.details} />
+                <DataGrid title="Land & Playground Configuration" items={data.legal.land} />
             </>
         );
         case "location": return (
             <>
-                <DataGrid title="Full Address Details" items={mockData.location.address} />
-                <DataGrid title="Geographical Mapping & Connectivity" items={mockData.location.geo} />
+                <DataGrid title="Full Address Details" items={data.location.address} />
+                <DataGrid title="Geographical Mapping & Connectivity" items={data.location.geo} />
             </>
         );
         case "infra": return (
             <>
-                <DataGrid title="Building Overview" items={mockData.infra.buildings} />
-                <DataGrid title="Storey Details" items={mockData.infra.storeys} />
-                <DataGrid title="Classroom Details" items={mockData.infra.classrooms} />
-                <DataGrid title="Building Condition Summary" items={mockData.infra.buildingCondition} />
-                <DataGrid title="Electricity & Climate Control" items={mockData.infra.electricity} />
-                <DataGrid title="Rooms & Labs" items={mockData.infra.rooms} />
-                <DataGrid title="Sanitation – Toilets" items={mockData.infra.sanitation} />
-                <DataGrid title="Hygiene Facilities" items={mockData.infra.hygiene} />
-                <DataGrid title="Drinking Water" items={mockData.infra.water} />
-                <DataGrid title="Library & Reading" items={mockData.infra.library} />
-                <DataGrid title="Health & Medical Facilities" items={mockData.infra.health} />
-                <DataGrid title="Accessibility (CWSN / Divyang)" items={mockData.infra.accessibility} />
-                <DataGrid title="Other Facilities" items={mockData.infra.facilities} />
-                <DataGrid title="Advanced Facilities" items={mockData.infra.advanced} />
-                <DataGrid title="Hostel Facilities" items={mockData.infra.hostel} />
-                <DataGrid title="Higher Secondary Subject Labs" items={mockData.infra.labs} />
-                <DataGrid title="Equipment Availability" items={mockData.infra.equipment} />
-                <DataGrid title="Digital Equipment Inventory" items={mockData.infra.digital} />
-                <DataGrid title="ICT Lab Details" items={mockData.infra.ict} />
-                <DataGrid title="Internet & Digital Learning" items={mockData.infra.internet} />
+                <DataGrid title="Building Overview" items={data.infra.buildings} />
+                <DataGrid title="Storey Details" items={data.infra.storeys} />
+                <DataGrid title="Classroom Details" items={data.infra.classrooms} />
+                <DataGrid title="Building Condition Summary" items={data.infra.buildingCondition} />
+                <DataGrid title="Electricity & Climate Control" items={data.infra.electricity} />
+                <DataGrid title="Rooms & Labs" items={data.infra.rooms} />
+                <DataGrid title="Sanitation – Toilets" items={data.infra.sanitation} />
+                <DataGrid title="Hygiene Facilities" items={data.infra.hygiene} />
+                <DataGrid title="Drinking Water" items={data.infra.water} />
+                <DataGrid title="Library & Reading" items={data.infra.library} />
+                <DataGrid title="Health & Medical Facilities" items={data.infra.health} />
+                <DataGrid title="Accessibility (CWSN / Divyang)" items={data.infra.accessibility} />
+                <DataGrid title="Other Facilities" items={data.infra.facilities} />
+                <DataGrid title="Advanced Facilities" items={data.infra.advanced} />
+                <DataGrid title="Hostel Facilities" items={data.infra.hostel} />
+                <DataGrid title="Higher Secondary Subject Labs" items={data.infra.labs} />
+                <DataGrid title="Equipment Availability" items={data.infra.equipment} />
+                <DataGrid title="Digital Equipment Inventory" items={data.infra.digital} />
+                <DataGrid title="ICT Lab Details" items={data.infra.ict} />
+                <DataGrid title="Internet & Digital Learning" items={data.infra.internet} />
             </>
         );
         case "staff": return (
             <>
-                <DataGrid title="Staff Strength" items={mockData.staff.counts} />
-                <DataGrid title="Staff Requirement (as per RTE Norms)" items={mockData.staff.required} />
-                <DataGrid title="Teaching Staff – Sample Profile" items={mockData.staff.teachingSample} />
-                <DataGrid title="Non-Teaching Staff – Sample Profile" items={mockData.staff.nonTeachingSample} />
-                <DataGrid title="Vocational Resource Persons – Sample" items={mockData.staff.vocationalSample} />
-                <DataGrid title="Performance Metrics" items={mockData.staff.qualifications} />
+                <DataGrid title="Staff Strength" items={data.staff.counts} />
+                <DataGrid title="Staff Requirement (as per RTE Norms)" items={data.staff.required} />
+                <DataGrid title="Teaching Staff – Sample Profile" items={data.staff.teachingSample} />
+                <DataGrid title="Non-Teaching Staff – Sample Profile" items={data.staff.nonTeachingSample} />
+                <DataGrid title="Vocational Resource Persons – Sample" items={data.staff.vocationalSample} />
+                <DataGrid title="Performance Metrics" items={data.staff.qualifications} />
             </>
         );
         case "safety": return (
             <>
-                <DataGrid title="Safety Regulations & Compliance" items={mockData.safety.compliance} />
-                <DataGrid title="Girls' Self-Defence Training" items={mockData.safety.girlsSafety} />
-                <DataGrid title="Safety Display & Counseling" items={mockData.safety.display} />
+                <DataGrid title="Safety Regulations & Compliance" items={data.safety.compliance} />
+                <DataGrid title="Girls' Self-Defence Training" items={data.safety.girlsSafety} />
+                <DataGrid title="Safety Display & Counseling" items={data.safety.display} />
             </>
         );
         case "capacity": return (
             <>
-                <DataGrid title="Section Configuration" items={mockData.capacity.sectionConfig} />
-                <DataGrid title="Current Enrollment Status" items={mockData.capacity.enrollment} />
-                <DataGrid title="Student Metrics" items={mockData.capacity.metrics} />
-                <DataGrid title="Student Profile – Sample Record" items={mockData.capacity.studentSample} />
+                <DataGrid title="Section Configuration" items={data.capacity.sectionConfig} />
+                <DataGrid title="Current Enrollment Status" items={data.capacity.enrollment} />
+                <DataGrid title="Student Metrics" items={data.capacity.metrics} />
+                <DataGrid title="Student Profile – Sample Record" items={data.capacity.studentSample} />
             </>
         );
         case "vocational": return (
             <>
-                <DataGrid title="Vocational Program Overview" items={mockData.vocational.details} />
-                <DataGrid title="Sector-Wise Course Mapping" items={mockData.vocational.sectors} />
-                <DataGrid title="Industry Engagement" items={mockData.vocational.engagement} />
-                <DataGrid title="Placement – Grade 10" items={mockData.vocational.placement10} />
-                <DataGrid title="Placement – Grade 12" items={mockData.vocational.placement12} />
-                <DataGrid title="Vocational Lab Infrastructure" items={mockData.vocational.labs} />
+                <DataGrid title="Vocational Program Overview" items={data.vocational.details} />
+                <DataGrid title="Sector-Wise Course Mapping" items={data.vocational.sectors} />
+                <DataGrid title="Industry Engagement" items={data.vocational.engagement} />
+                <DataGrid title="Placement – Grade 10" items={data.vocational.placement10} />
+                <DataGrid title="Placement – Grade 12" items={data.vocational.placement12} />
+                <DataGrid title="Vocational Lab Infrastructure" items={data.vocational.labs} />
             </>
         );
-        case "transport": return <DataGrid title="Transportation Regulations Compliance" items={mockData.transport.compliance} />;
-        default: return <div>Select a section</div>;
+        case "transport": return <DataGrid title="Transportation Regulations Compliance" items={data.transport.compliance} />;
+        default: return <div className="p-8 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Select a section to view details</div>;
     }
 }
 
 export default function ProfileBookletModal({ isOpen, onClose, schoolName, udiseCode, mode = "view" }: ProfileBookletModalProps) {
     const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
+    const [displayData, setDisplayData] = useState(mockData);
+    const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
+
+
+    useEffect(() => {
+        if (isOpen) {
+            const savedData = localStorage.getItem("profileData");
+            if (savedData) {
+                try {
+                    const p = JSON.parse(savedData);
+                    const newData = JSON.parse(JSON.stringify(mockData)); // Deep clone mock data
+
+                    // Mapping profileData to mockData structure
+                    if (p.schoolName) newData.basic.identity[0].value = p.schoolName;
+                    if (p.udiseNumber) newData.basic.identity[1].value = p.udiseNumber;
+                    if (p.estYear) newData.basic.identity[2].value = p.estYear;
+                    if (p.boardAffiliation) newData.basic.identity[3].value = p.boardAffiliation;
+                    if (p.applicationType) newData.basic.identity[4].value = p.applicationType;
+                    if (p.classification) newData.basic.identity[5].value = p.classification;
+
+                    if (p.stdCode) newData.basic.contact[0].value = p.stdCode;
+                    if (p.landline) newData.basic.contact[1].value = p.landline;
+                    if (p.mobile) newData.basic.contact[2].value = p.mobile;
+                    if (p.email) newData.basic.contact[3].value = p.email;
+                    if (p.website) newData.basic.contact[4].value = p.website;
+
+                    if (p.managementGroup) newData.basic.management[2].value = p.managementGroup;
+                    if (p.managementCode) newData.basic.management[3].value = p.managementCode;
+                    if (p.subManagement) newData.basic.management[4].value = p.subManagement;
+                    if (p.isPmShri !== undefined) newData.basic.management[5].value = p.isPmShri ? "Yes" : "No";
+
+                    if (p.lowestClass) newData.basic.classRange[0].value = p.lowestClass;
+                    if (p.highestClass) newData.basic.classRange[1].value = p.highestClass;
+                    if (p.hasPrePrimary !== undefined) newData.basic.classRange[2].value = p.hasPrePrimary ? "Yes" : "No";
+
+                    if (p.address) newData.location.address[0].value = p.address;
+                    if (p.pinCode) newData.location.address[1].value = p.pinCode;
+                    if (p.district) newData.location.address[2].value = p.district;
+                    if (p.taluka) newData.location.address[3].value = p.taluka;
+                    if (p.revenueBlock) newData.location.address[4].value = p.revenueBlock;
+                    if (p.villageName) newData.location.address[5].value = p.villageName;
+                    if (p.gramPanchayat) newData.location.address[6].value = p.gramPanchayat;
+                    if (p.urbanLocalBody) newData.location.address[7].value = p.urbanLocalBody;
+                    if (p.wardName) newData.location.address[8].value = p.wardName;
+                    if (p.crcName) newData.location.address[9].value = p.crcName;
+                    if (p.assemblyConstituency) newData.location.address[10].value = p.assemblyConstituency;
+                    if (p.parliamentaryConstituency) newData.location.address[11].value = p.parliamentaryConstituency;
+
+                    if (p.buildingStatus) newData.infra.buildings[0].value = p.buildingStatus;
+                    if (p.totalClassrooms) newData.infra.classrooms[5].value = String(p.totalClassrooms);
+                    if (p.hasElectricity !== undefined) newData.infra.electricity[0].value = p.hasElectricity ? "Yes" : "No";
+                    if (p.hasLibrary !== undefined) newData.infra.library[0].value = p.hasLibrary ? "Yes" : "No";
+                    if (p.hasRamp !== undefined) newData.infra.accessibility[0].value = p.hasRamp ? "Yes" : "No";
+
+                    if (p.totalTeachingStaff) newData.staff.counts[2].value = String(p.totalTeachingStaff);
+                    if (p.totalNonTeachingStaff) newData.staff.counts[3].value = String(p.totalNonTeachingStaff);
+                    if (p.totalVocationalStaff) newData.staff.counts[4].value = String(p.totalVocationalStaff);
+
+                    if (p.totalStudents) newData.capacity.enrollment[0].value = String(p.totalStudents);
+
+                    if (p.transFitnessCert) newData.transport.compliance[0].value = p.transFitnessCert;
+                    if (p.transVehicleAge) newData.transport.compliance[1].value = p.transVehicleAge;
+                    if (p.transPermit) newData.transport.compliance[2].value = p.transPermit;
+                    if (p.transSpeedGovernor) newData.transport.compliance[3].value = p.transSpeedGovernor;
+                    if (p.transVehicleExterior) newData.transport.compliance[4].value = p.transVehicleExterior;
+                    if (p.transSchoolBusProminent) newData.transport.compliance[5].value = p.transSchoolBusProminent;
+                    if (p.transHiredBusDuty) newData.transport.compliance[6].value = p.transHiredBusDuty;
+                    if (p.transSchoolNameWritten) newData.transport.compliance[7].value = p.transSchoolNameWritten;
+                    if (p.transDriverExperience) newData.transport.compliance[8].value = p.transDriverExperience;
+                    if (p.transDriverNoTrafficOffences) newData.transport.compliance[9].value = p.transDriverNoTrafficOffences;
+                    if (p.transAutoSafety) newData.transport.compliance[10].value = p.transAutoSafety;
+                    if (p.transAutoParentInstruction) newData.transport.compliance[11].value = p.transAutoParentInstruction;
+                    if (p.transAutoRegistered) newData.transport.compliance[12].value = p.transAutoRegistered;
+
+                    setDisplayData(newData);
+                } catch (e) {
+                    console.error("Failed to parse profile data", e);
+                }
+            } else {
+                setDisplayData(mockData);
+            }
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
     return (
-      <div className="fixed inset-0 z-[100] flex justify-end bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-[90vw] md:w-[80vw] lg:w-[1000px] h-full bg-slate-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      <div className={cn(
+          "fixed inset-0 z-[100] flex bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200",
+          isFullScreen ? "justify-center items-center" : "justify-end"
+      )}>
+          <div className={cn(
+              "bg-slate-50 shadow-2xl flex flex-col transition-all duration-500 overflow-hidden",
+              isFullScreen 
+                ? "w-screen h-screen rounded-none" 
+                : "w-[90vw] md:w-[80vw] lg:w-[1000px] h-full animate-in slide-in-from-right"
+          )}>
+
               
               {/* Header */}
-              <div className="flex items-center justify-between p-6 bg-white border-b border-slate-200 shrink-0">
-                  <div>
-                      <h2 className="text-xl font-bold text-slate-800">{schoolName || mockData.basic.identity[0].value}</h2>
-                      <p className="text-sm text-slate-500 font-medium mt-1">
-                          UDISE: <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">{udiseCode || mockData.basic.identity[1].value}</span>
-                          <span className="mx-2">•</span>
-                          {mode === "verify" ? "Verification Mode" : "Profile Booklet View"}
-                      </p>
+              <div className="bg-white px-8 py-6 border-b border-slate-200 flex items-center justify-between sticky top-0 z-10 shadow-sm shrink-0">
+                  <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 animate-bounce-slow">
+                          <Building2 className="w-6 h-6" />
+                      </div>
+                      <div>
+                          <h2 className="text-xl font-black text-slate-800 tracking-tight">{schoolName || displayData.basic.identity[0].value}</h2>
+                          <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">UDISE: {udiseCode || displayData.basic.identity[1].value}</span>
+                              <div className="w-1 h-1 rounded-full bg-slate-300" />
+                              <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">{mode === "verify" ? "Verification Mode" : "Profile Booklet View"}</span>
+                          </div>
+                      </div>
                   </div>
-                  <button 
-                      onClick={onClose}
-                      className="p-2.5 rounded-full hover:bg-slate-100 text-slate-500 transition-colors bg-white border border-slate-200"
-                  >
-                      <X className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setIsFullScreen(!isFullScreen)}
+                        className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
+                        title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+                      >
+                          {isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                      </button>
+                      <button 
+                        onClick={onClose}
+                        className="p-2 hover:bg-slate-100 rounded-xl transition-colors group"
+                      >
+                          <X className="w-5 h-5 text-slate-400 group-hover:text-slate-600 group-hover:rotate-90 transition-all duration-300" />
+                      </button>
+                  </div>
               </div>
 
-              {/* Layout */}
-              <div className="flex flex-1 overflow-hidden">
-                  
+
+              <div className="flex-1 flex overflow-hidden">
                   {/* Sidebar Navigation */}
-                  <div className="w-64 bg-white border-r border-slate-200 overflow-y-auto shrink-0 p-4 space-y-1 hidden md:block">
-                      {SECTIONS.map((section) => {
-                          const isActive = activeSection === section.id;
-                          const Icon = section.icon;
-                          return (
-                              <button
-                                  key={section.id}
-                                  onClick={() => setActiveSection(section.id)}
-                                  className={cn(
-                                      "w-full flex justify-start items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all",
-                                      isActive 
-                                          ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100/50" 
-                                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
-                                  )}
-                              >
-                                  <Icon className={cn("w-4 h-4", isActive ? "text-blue-600" : "text-slate-400")} />
-                                  <span className="text-left">{section.label}</span>
-                              </button>
-                          );
-                      })}
+                  <div className="w-72 bg-white border-r border-slate-200 overflow-y-auto p-6 space-y-2 custom-scrollbar hidden md:block">
+                      {SECTIONS.map((section) => (
+                          <button
+                              key={section.id}
+                              onClick={() => setActiveSection(section.id)}
+                              className={cn(
+                                  "w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-bold transition-all group",
+                                  activeSection === section.id 
+                                    ? "bg-blue-600 text-white shadow-xl shadow-blue-600/20 translate-x-1" 
+                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                              )}
+                          >
+                              <section.icon className={cn(
+                                  "w-4 h-4 transition-transform group-hover:scale-110",
+                                  activeSection === section.id ? "text-white" : "text-slate-400"
+                              )} />
+                              <span className="text-left">{section.label}</span>
+                          </button>
+                      ))}
                   </div>
 
                   {/* Main Content Area */}
                   <div className="flex-1 flex flex-col min-w-0 bg-slate-50/50 relative">
-                     <div className="flex-1 overflow-y-auto p-6 md:p-8">
-                         {/* Mobile Dropdown for Navigation (Optional graceful fallback) */}
-                         <div className="md:hidden mb-6">
-                            <select 
-                               className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               value={activeSection}
-                               onChange={e => setActiveSection(e.target.value)}
-                            >
-                               {SECTIONS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                            </select>
-                         </div>
+                      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar pb-32">
+                          <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                              <div className="mb-8 border-b border-slate-200 pb-4">
+                                  <h3 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
+                                      {SECTIONS.find(s => s.id === activeSection)?.label}
+                                      <div className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                                  </h3>
+                                  <p className="text-xs text-slate-400 font-medium mt-1">Review accurate data from official school records.</p>
+                              </div>
+                              
+                              <DataRenderer sectionId={activeSection} data={displayData} />
+                          </div>
+                      </div>
 
-                         <div className="max-w-3xl mx-auto pb-6">
-                            <DataRenderer sectionId={activeSection} />
-                         </div>
-                     </div>
-
-                     {/* Verification Footer */}
-                     {mode === "verify" && (
-                         <div className="border-t border-slate-200 bg-white p-6 shrink-0 z-10 w-full flex flex-col gap-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">Verification Remarks</label>
-                                <textarea className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50" rows={3} placeholder="Add your constructive remarks or reasons for rejection here..."></textarea>
-                            </div>
-                            <div className="flex flex-wrap items-center justify-end gap-3">
-                                <button className="px-5 py-2.5 rounded-xl border border-rose-200 text-rose-600 font-semibold hover:bg-rose-50 transition-colors text-sm" onClick={() => { alert("Application Rejected"); onClose(); }}>Reject Application</button>
-                                <button className="px-5 py-2.5 rounded-xl border border-amber-200 text-amber-600 font-semibold hover:bg-amber-50 transition-colors text-sm" onClick={() => { alert("Changes Requested"); onClose(); }}>Request Changes</button>
-                                <button className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors shadow-sm text-sm flex items-center gap-2" onClick={() => { alert("Profile Verified!"); onClose(); }}>
-                                    <CheckCircle2 className="w-4 h-4" /> Approve Profile
-                                </button>
-                            </div>
-                         </div>
-                     )}
+                      {/* Verification Footer */}
+                      {mode === "verify" && (
+                          <div className="border-t border-slate-200 bg-white p-6 shrink-0 z-10 w-full flex flex-col gap-4">
+                              <div>
+                                  <label className="block text-sm font-semibold text-slate-700 mb-2 font-black uppercase tracking-widest text-[10px]">Verification Remarks</label>
+                                  <textarea className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50" rows={3} placeholder="Add your constructive remarks or reasons for rejection here..."></textarea>
+                              </div>
+                              <div className="flex flex-wrap items-center justify-end gap-3">
+                                  <button className="px-5 py-2.5 rounded-xl border border-rose-200 text-rose-600 font-black uppercase tracking-widest text-[10px] hover:bg-rose-50 transition-colors" onClick={() => { alert("Application Rejected"); onClose(); }}>Reject Application</button>
+                                  <button className="px-5 py-2.5 rounded-xl border border-amber-200 text-amber-600 font-black uppercase tracking-widest text-[10px] hover:bg-amber-50 transition-colors" onClick={() => setIsRequestModalOpen(true)}>Request Changes</button>
+                                  <button className="bg-emerald-600 text-white px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center gap-2" onClick={() => { alert("Profile Verified!"); onClose(); }}>
+                                      <CheckCircle2 className="w-4 h-4" /> Approve Profile
+                                  </button>
+                              </div>
+                          </div>
+                      )}
                   </div>
-
               </div>
           </div>
+          <RequestChangesModal 
+            isOpen={isRequestModalOpen} 
+            onClose={() => setIsRequestModalOpen(false)} 
+            schoolName={schoolName || displayData.basic.identity[0].value}
+          />
       </div>
+
     );
 }

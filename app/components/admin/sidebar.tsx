@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
     School,
-    FileCheck,
     SearchCheck,
     ClipboardCheck,
     ShieldAlert,
@@ -21,7 +20,6 @@ import { motion } from "framer-motion";
 const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
     { name: "School Management", icon: School, href: "/admin/schools" },
-    { name: "Applications & Recognition", icon: FileCheck, href: "/admin/applications" },
     { name: "Inspection Management", icon: SearchCheck, href: "/admin/inspections" },
     { name: "Document Verification", icon: ClipboardCheck, href: "/admin/documents" },
     { name: "AI Monitoring", icon: ShieldAlert, href: "/admin/ai-monitoring" },

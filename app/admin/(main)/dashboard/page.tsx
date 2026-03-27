@@ -7,13 +7,14 @@ import {
     FileText,
     CheckCircle2,
     AlertCircle,
-    ShieldAlert,
     TrendingUp,
     ArrowUpRight,
-    ArrowDownRight
+    ArrowDownRight,
+    Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 const stats = [
     {
@@ -23,14 +24,6 @@ const stats = [
         isPositive: true,
         icon: School,
         color: "blue"
-    },
-    {
-        label: "Pending Applications",
-        value: "142",
-        change: "+5%",
-        isPositive: false,
-        icon: FileText,
-        color: "amber"
     },
     {
         label: "Approved Recognitions",
@@ -66,6 +59,8 @@ const item = {
 };
 
 export default function DashboardPage() {
+    const [exportStatus, setExportStatus] = React.useState<"idle" | "generating" | "success">("idle");
+
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -77,12 +72,31 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors shadow-sm">
-                        Export Report
+                    <button 
+                        onClick={() => {
+                            setExportStatus("generating");
+                            setTimeout(() => {
+                                setExportStatus("success");
+                                setTimeout(() => setExportStatus("idle"), 3000);
+                            }, 2000);
+                        }}
+                        disabled={exportStatus !== "idle"}
+                        className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
+                    >
+                        {exportStatus === "generating" ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : exportStatus === "success" ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                            <FileText className="w-4 h-4" />
+                        )}
+                        {exportStatus === "generating" ? "Generating..." : exportStatus === "success" ? "Report Exported!" : "Export Report"}
                     </button>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-500/20">
-                        Schedule Inspection
-                    </button>
+                    <Link href="/admin/inspections">
+                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-500/20">
+                            Schedule Inspection
+                        </button>
+                    </Link>
                 </div>
             </div>
 
@@ -91,7 +105,7 @@ export default function DashboardPage() {
                 variants={container}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+                className="grid grid-cols-1 md:grid-cols-3 gap-6"
             >
                 {stats.map((stat) => (
                     <motion.div
@@ -136,11 +150,11 @@ export default function DashboardPage() {
 
             {/* Main Charts & Tables Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Recent Applications Table */}
+                {/* Recent Inspections Table */}
                 <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                        <h3 className="font-bold text-slate-800">Recent Applications</h3>
-                        <button className="text-blue-600 text-sm font-semibold hover:underline">View All</button>
+                        <h3 className="font-bold text-slate-800">Recent Inspections</h3>
+                        <Link href="/admin/inspections" className="text-blue-600 text-sm font-semibold hover:underline">View All</Link>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
@@ -148,54 +162,37 @@ export default function DashboardPage() {
                                 <tr>
                                     <th className="px-6 py-4">School Name</th>
                                     <th className="px-6 py-4">District</th>
+                                    <th className="px-6 py-4">Date</th>
+                                    <th className="px-6 py-4">Type</th>
                                     <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">AI Score</th>
-                                    <th className="px-6 py-4">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {[
-                                    { name: "Public High School", district: "Lucknow", status: "Pending", score: 85, color: "amber" },
-                                    { name: "Gyan Mandir Academy", district: "Kanpur", status: "Review", score: 92, color: "blue" },
-                                    { name: "Nightingale Convent", district: "Agra", status: "Approved", score: 88, color: "emerald" },
-                                    { name: "Saraswati Shishu Mandir", district: "Varanasi", status: "Pending", score: 74, color: "amber" },
-                                    { name: "St. Xavier's International", district: "Meerut", status: "Rejected", score: 62, color: "rose" },
-                                ].map((school, i) => (
+                                    { name: "City Public School", district: "Lucknow", date: "2026-03-27", type: "Regular", status: "Scheduled" },
+                                    { name: "Riverside Academy", district: "Kanpur", date: "2026-03-28", type: "Surprise", status: "Pending" },
+                                    { name: "Green Valley High", district: "Agra", date: "2026-03-29", type: "Follow-up", status: "Confirmed" },
+                                ].map((inspection, i) => (
                                     <tr key={i} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <p className="text-sm font-semibold text-slate-900">{school.name}</p>
-                                            <p className="text-[10px] text-slate-500">UDISE: 09120304{i}01</p>
+                                            <p className="text-sm font-semibold text-slate-900">{inspection.name}</p>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600">{school.district}</td>
+                                        <td className="px-6 py-4 text-sm text-slate-600">{inspection.district}</td>
+                                        <td className="px-6 py-4 text-sm text-slate-600">{inspection.date}</td>
                                         <td className="px-6 py-4">
-                                            <span className={cn(
-                                                "text-[10px] font-bold px-2 py-1 rounded-full",
-                                                school.color === "emerald" ? "bg-emerald-50 text-emerald-600" :
-                                                    school.color === "amber" ? "bg-amber-50 text-amber-600" :
-                                                        school.color === "blue" ? "bg-blue-50 text-blue-600" :
-                                                            "bg-rose-50 text-rose-600"
-                                            )}>
-                                                {school.status}
+                                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+                                                {inspection.type}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={cn(
-                                                            "h-full rounded-full",
-                                                            school.score > 80 ? "bg-emerald-500" : school.score > 70 ? "bg-amber-500" : "bg-rose-500"
-                                                        )}
-                                                        style={{ width: `${school.score}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-xs font-bold text-slate-700">{school.score}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600 transition-colors">
-                                                <TrendingUp className="w-4 h-4" />
-                                            </button>
+                                            <span className={cn(
+                                                "text-[10px] font-bold px-2 py-1 rounded-full",
+                                                inspection.status === "Scheduled" ? "bg-blue-50 text-blue-600" :
+                                                inspection.status === "Pending" ? "bg-amber-50 text-amber-600" :
+                                                "bg-emerald-50 text-emerald-600"
+                                            )}>
+                                                {inspection.status}
+                                            </span>
                                         </td>
                                     </tr>
                                 ))}
@@ -204,47 +201,8 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* AI Prediction Insights / Notifications */}
+                {/* Urgent Actions sidebar */}
                 <div className="space-y-8">
-                    <div className="bg-[#1e293b] p-6 rounded-2xl text-white shadow-xl shadow-blue-900/10 relative overflow-hidden">
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
-                                    <ShieldAlert className="w-5 h-5 text-white" />
-                                </div>
-                                <h3 className="font-bold">AI Monitoring</h3>
-                            </div>
-                            <p className="text-slate-300 text-sm mb-6">
-                                System detected 12 schools with mismatched infrastructure data in Lucknow District.
-                            </p>
-                            <div className="space-y-4">
-                                <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-[10px] font-medium text-slate-400">Data Integrity</span>
-                                        <span className="text-[10px] font-bold text-emerald-400">94.2%</span>
-                                    </div>
-                                    <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-blue-500 w-[94.2%]"></div>
-                                    </div>
-                                </div>
-                                <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-[10px] font-medium text-slate-400">System Uptime</span>
-                                        <span className="text-[10px] font-bold text-blue-400">99.9%</span>
-                                    </div>
-                                    <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-500 w-[99.9%]"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <button className="w-full mt-6 bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 rounded-lg border border-white/20 transition-all">
-                                Audit All Flags
-                            </button>
-                        </div>
-                        {/* Background glow */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 blur-3xl -mr-16 -mt-16"></div>
-                    </div>
-
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                         <h3 className="font-bold text-slate-800 mb-4">Urgent Actions</h3>
                         <div className="space-y-4">

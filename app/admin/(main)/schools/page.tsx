@@ -10,8 +10,15 @@ import {
     Eye,
     CheckCircle,
     Ban,
-    Building2
+    Building2,
+    FileText,
+    Clock,
+    AlertCircle,
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import ProfileBookletModal from "@/app/components/ProfileBookletModal";
 
@@ -38,16 +45,33 @@ export default function SchoolsPage() {
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">School Management</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">School Management</h1>
                     <p className="text-slate-500 text-sm mt-1">
                         Manage registered schools, verify credentials, and monitor governance status.
                     </p>
                 </div>
-                <button className="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95">
-                    <Plus className="w-4 h-4" />
-                    Register New School
-                </button>
             </div>
+
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: "New Requests", count: "48", icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
+                    { label: "Under Review", count: "32", icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
+                    { label: "Pending Inspection", count: "14", icon: AlertCircle, color: "text-indigo-600", bg: "bg-indigo-50" },
+                    { label: "Granted Recognition", count: "892", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
+                ].map((stat, i) => (
+                    <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", stat.bg)}>
+                                <stat.icon className={cn("w-5 h-5", stat.color)} />
+                            </div>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                        <h3 className="text-2xl font-black text-slate-900 mt-1">{stat.count}</h3>
+                    </div>
+                ))}
+            </div>
+
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
                 <div className="relative flex-1 w-full">
@@ -135,7 +159,28 @@ export default function SchoolsPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination */}
+                    <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+                        <p className="text-xs text-slate-500 font-medium">
+                            Showing <span className="font-bold text-slate-900">{filteredSchools.length}</span> of <span className="font-bold text-slate-900">{schools.length}</span> schools
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button className="p-2 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <div className="flex items-center gap-1">
+                                <button className="w-8 h-8 rounded-lg bg-blue-600 text-white text-xs font-bold shadow-md shadow-blue-500/20">1</button>
+                                <button className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-all">2</button>
+                                <button className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-all">3</button>
+                            </div>
+                            <button className="p-2 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all">
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
+
             ) : (
                 <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-24 text-center">
                     <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">

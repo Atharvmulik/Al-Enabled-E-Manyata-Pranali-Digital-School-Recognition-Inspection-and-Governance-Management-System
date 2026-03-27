@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
-import { Bell, Send, Users, Target, History, Search, CheckCircle2, Clock, MoreVertical, Mail } from "lucide-react";
+import React, { useState } from "react";
+import { Bell, Send, Users, Target, History, Search, CheckCircle2, Clock, MoreVertical, Mail, ChevronDown, Trash2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 const notificationHistory = [
     { id: 1, message: "Reminder: Fire Safety NOC renewal due by March 31.", sentTo: "All Schools", date: "2026-02-25", status: "Delivered", type: "Urgent" },
@@ -11,9 +12,33 @@ const notificationHistory = [
     { id: 4, message: "UDISE data validation cycle started for FY 26-27.", sentTo: "Principals", date: "2026-02-18", status: "Pending", type: "Action Required" },
 ];
 
+const districts = ["Lucknow", "Kanpur", "Agra", "Varanasi", "Meerut", "Prayagraj"];
+const inspectors = [
+    { id: 1, name: "Arjun Mehta", role: "Sr. Inspector", region: "Lucknow" },
+    { id: 2, name: "Priya Sharma", role: "Field Officer", region: "Kanpur" },
+    { id: 3, name: "Rohan Gupta", role: "District Coordinator", region: "Agra" },
+];
+
 export default function NotificationsPage() {
-    const [message, setMessage] = React.useState("");
-    const [target, setTarget] = React.useState("All Schools");
+    const [history, setHistory] = useState(notificationHistory);
+    const [message, setMessage] = useState("");
+    const [target, setTarget] = useState("All Schools");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [selectedInspector, setSelectedInspector] = useState("");
+    const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
+
+    const handleDelete = (id: number) => {
+        setHistory(prev => prev.filter(h => h.id !== id));
+        setActiveMenuId(null);
+    };
+
+    const handleRemind = (id: number) => {
+        const item = history.find(h => h.id === id);
+        if (item) {
+            alert(`Reminder sent for: ${item.message}`);
+        }
+        setActiveMenuId(null);
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
@@ -38,10 +63,69 @@ export default function NotificationsPage() {
                         <div className="space-y-6">
                             <div>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Target Selection</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {["All Schools", "Lucknow", "Principals", "Inspectors"].map((t) => (
-                                        <button key={t} onClick={() => setTarget(t)} className={cn("px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-all text-center", target === t ? "bg-blue-50 border-blue-600 text-blue-600 ring-2 ring-blue-500/10" : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-white hover:border-slate-200")}>{t}</button>
-                                    ))}
+                                <div className="grid grid-cols-1 gap-2">
+                                    <div className="flex gap-2">
+                                        {["All Schools", "Search District", "Inspectors"].map((t) => (
+                                            <button 
+                                                key={t} 
+                                                onClick={() => {
+                                                    setTarget(t);
+                                                    setSearchQuery("");
+                                                    setSelectedInspector("");
+                                                }} 
+                                                className={cn(
+                                                    "flex-1 px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all text-center", 
+                                                    target === t ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                                                )}
+                                            >
+                                                {t}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Dynamic Inputs Based on Selection */}
+                                    <div className="mt-2 animate-in slide-in-from-top-2 duration-300">
+                                        {target === "All Schools" && (
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Search specific school (optional)..." 
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all shadow-inner"
+                                                />
+                                            </div>
+                                        )}
+                                        {target === "Search District" && (
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Type district name (e.g. Lucknow)..." 
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all shadow-inner"
+                                                />
+                                            </div>
+                                        )}
+                                        {target === "Inspectors" && (
+                                            <div className="relative group">
+                                                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                                <select 
+                                                    value={selectedInspector}
+                                                    onChange={(e) => setSelectedInspector(e.target.value)}
+                                                    className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all shadow-inner appearance-none cursor-pointer"
+                                                >
+                                                    <option value="">Select Inspector Officer</option>
+                                                    {inspectors.map((ins) => (
+                                                        <option key={ins.id} value={ins.name}>{ins.name} ({ins.region})</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none transition-transform group-hover:translate-y-0.5" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             <div>
@@ -51,7 +135,7 @@ export default function NotificationsPage() {
                             <button disabled={!message} className="w-full py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group">
                                 <Send className="w-4 h-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" /> Transmit Notification
                             </button>
-                            <p className="text-[9px] text-slate-400 font-medium text-center leading-relaxed">By sending this, you agree to broadcast this message to {target}. This action is logged in the audit history.</p>
+                             <p className="text-[9px] text-slate-400 font-medium text-center leading-relaxed">By sending this, you agree to broadcast this message to {target === "Inspectors" ? (selectedInspector || "Inspectors") : (searchQuery || target)}. This action is logged in the audit history.</p>
                         </div>
                     </div>
                 </div>
@@ -74,7 +158,7 @@ export default function NotificationsPage() {
                                     <tr><th className="px-8 py-4">Broadcast Message</th><th className="px-8 py-4">Recipients</th><th className="px-8 py-4">Date</th><th className="px-8 py-4">Status</th><th className="px-8 py-4 text-right">Action</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {notificationHistory.map((h) => (
+                                    {history.map((h) => (
                                         <tr key={h.id} className="hover:bg-slate-50/30 transition-colors group">
                                             <td className="px-8 py-6 max-w-sm">
                                                 <p className="text-xs font-bold text-slate-900 line-clamp-2 leading-relaxed">{h.message}</p>
@@ -83,7 +167,50 @@ export default function NotificationsPage() {
                                             <td className="px-8 py-6"><div className="flex items-center gap-2"><div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center"><Target className="w-3 h-3 text-slate-400" /></div><span className="text-xs font-bold text-slate-600">{h.sentTo}</span></div></td>
                                             <td className="px-8 py-6"><span className="text-[11px] font-bold text-slate-500">{h.date}</span></td>
                                             <td className="px-8 py-6"><div className="flex items-center gap-2">{h.status==="Delivered"?<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />:h.status==="Seen"?<Users className="w-3.5 h-3.5 text-blue-500" />:<Clock className="w-3.5 h-3.5 text-amber-500" />}<span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{h.status}</span></div></td>
-                                            <td className="px-8 py-6 text-right"><button className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-blue-600 transition-all border border-transparent hover:border-slate-100 shadow-sm"><MoreVertical className="w-4 h-4" /></button></td>
+                                            <td className="px-8 py-6 text-right relative">
+                                                <button 
+                                                    onClick={() => setActiveMenuId(activeMenuId === h.id ? null : h.id)}
+                                                    className={cn(
+                                                        "p-2 rounded-xl transition-all border shadow-sm",
+                                                        activeMenuId === h.id ? "bg-blue-50 text-blue-600 border-blue-100" : "text-slate-400 hover:text-blue-600 hover:bg-white border-transparent hover:border-slate-100"
+                                                    )}
+                                                >
+                                                    <MoreVertical className="w-4 h-4" />
+                                                </button>
+
+                                                <AnimatePresence>
+                                                    {activeMenuId === h.id && (
+                                                        <>
+                                                            <div 
+                                                                className="fixed inset-0 z-10" 
+                                                                onClick={() => setActiveMenuId(null)} 
+                                                            />
+                                                            <motion.div
+                                                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                className="absolute right-8 top-16 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/50 z-20 py-2 overflow-hidden"
+                                                            >
+                                                                <button 
+                                                                    onClick={() => handleRemind(h.id)}
+                                                                    className="w-full px-4 py-2.5 text-left text-[11px] font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors flex items-center gap-3"
+                                                                >
+                                                                    <RotateCcw className="w-3.5 h-3.5" />
+                                                                    Remind Again
+                                                                </button>
+                                                                <div className="h-px bg-slate-100 mx-2 my-1" />
+                                                                <button 
+                                                                    onClick={() => handleDelete(h.id)}
+                                                                    className="w-full px-4 py-2.5 text-left text-[11px] font-bold text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-3"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                    Delete Record
+                                                                </button>
+                                                            </motion.div>
+                                                        </>
+                                                    )}
+                                                </AnimatePresence>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
