@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
@@ -13,56 +13,7 @@ import {
 } from "react-icons/fi";
 import { API_BASE_URL } from "@/lib/api";
 
-// ─── School ID — replace with your auth session value ─────────────────────────
-const SCHOOL_ID = "school_001";
-
-// ─── API helpers ──────────────────────────────────────────────────────────────
-
-async function apiPut(path: string, body: unknown): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err?.detail ?? `Error ${res.status}`);
-    }
-}
-
-async function apiPost(path: string, body: unknown): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err?.detail ?? `Error ${res.status}`);
-    }
-}
-
-async function apiDelete(path: string): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}${path}`, { method: "DELETE" });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err?.detail ?? `Error ${res.status}`);
-    }
-}
-
-async function uploadDocument(documentType: string, file: File): Promise<void> {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("document_type", documentType);
-    const res = await fetch(`${API_BASE_URL}/profile/upload-document?document_type=${documentType}`, {
-        method: "POST",
-        body: form,
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err?.detail ?? `Error ${res.status}`);
-    }
-}
+// ─── API helpers are defined inside the component to use token from state ─────
 
 const steps = [
     "Basic Details",
@@ -76,6 +27,21 @@ const steps = [
     "Vocational Education",
     "Transportation Details",
 ];
+
+const STEP_API = [
+    "/profile/basic-details",            // 0
+    "/profile/receipts-expenditure",     // 1
+    "/profile/legal-details",            // 2
+    "/profile/location",                 // 3
+    "/profile/infrastructure",           // 4
+    "/profile/staff",                    // 5
+    "/profile/safety",                   // 6
+    "/profile/student-capacity",         // 7
+    "/profile/vocational-education",     // 8
+    "/profile/transport"                 // ✅ 9 (THIS WAS MISSING)
+];
+
+
 
 const LANGUAGES = [
     "01-Assamese", "02-Bengali", "03-Gujarati", "04-Hindi", "05-Kannada",
@@ -627,8 +593,18 @@ const TRAINING_LIST = [
 
 export default function ProfilePage() {
     const [currentStep, setCurrentStep] = useState<number>(0);
-    const [showValidationPopup, setShowValidationPopup] = useState(false);
-    const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+    // ─── Auth state ── populated inside useEffect, never during SSR ────────────
+    const [token, setToken] = useState<string | null>(null);
+    const [isAuthReady, setIsAuthReady] = useState(false); // blocks render until auth check completes
+
+    const [stepErrors, setStepErrors] = useState<Record<number, any>>({});
+
+    // ─── UDISE verification state ─────────────────────────────────────────────
+    const [udiseVerified, setUdiseVerified] = useState<boolean | null>(null);
+    const [udiseVerifying, setUdiseVerifying] = useState(false);
+
+
     const [schoolName, setSchoolName] = useState("");
     const [udiseNumber, setUdiseNumber] = useState("");
     const [estYear, setEstYear] = useState("");
@@ -807,6 +783,835 @@ export default function ProfilePage() {
         currentYearAttendance: ""
     });
 
+
+    useEffect(() => {
+        const raw = localStorage.getItem("user");
+
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            setToken(parsed.access_token);
+        }
+
+        setIsAuthReady(true);
+    }, []);
+
+
+
+    // ── Step 3: Fetch existing profile data and pre-fill form ─────────────────
+    useEffect(() => {
+        if (!isAuthReady || !token || token === "null" || token === "undefined") return;
+
+        const fetchStepData = async () => {
+            try {
+                const endpoint = STEP_API[currentStep];
+
+                // ✅ SAFETY CHECK (MOST IMPORTANT)
+                if (!endpoint) {
+                    console.error("❌ Invalid STEP_API for step:", currentStep);
+                    return;
+                }
+
+                const url = `${API_BASE_URL}${endpoint}`;
+                console.log("🚀 Fetching:", url);
+
+                const res = await fetch(url, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                console.log("STATUS:", res.status);
+
+                if (!res.ok) {
+                    console.warn("⚠️ API failed:", res.status);
+                    return;
+                }
+
+                const data = await res.json();
+                fillStepData(currentStep, data);
+
+            } catch (err) {
+                console.error("❌ Step fetch error:", err);
+            }
+        };
+
+        fetchStepData();
+    }, [currentStep, token, isAuthReady]);
+
+
+    useEffect(() => {
+        if (!token || !isAuthReady) return;
+
+        const fetchStatus = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/profile/status`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (!res.ok) return;
+
+                const data = await res.json();
+
+                if (data.completed_steps?.length > 0) {
+                    setCurrentStep(prev => {
+                        const nextStep = data.completed_steps.length;
+                        return nextStep < STEP_API.length ? nextStep : STEP_API.length - 1;
+                    });
+                }
+
+            } catch (err) {
+                console.error("Status fetch error:", err);
+            }
+        };
+
+        fetchStatus();
+    }, [token, isAuthReady]);
+
+    const fillStepData = (step: number, data: any) => {
+        switch (step) {
+            case 0: {
+                setSchoolName(data.school_name || "");
+                setUdiseNumber(data.udise_number || "");
+                setEstYear(data.est_year || "");
+                setBoardAffiliation(data.board_affiliation || "");
+                setMobile(data.mobile || "");
+                setEmail(data.email || "");
+                setWebsite(data.website || "");
+                setStdCode(data.std_code || "");
+                setLandline(data.landline || "");
+                setSubManagement(data.sub_management || "");
+                setIsPmShri(data.is_pm_shri || "");
+                setSchoolType(data.school_type || "");
+                setLowestClass(data.lowest_class || "");
+                setHighestClass(data.highest_class || "");
+                setLocationType(data.location_type || "");
+                setManagementGroup(data.management_group || "");
+                setManagementCode(data.management_code || "");
+                setClassification(data.classification || "");
+                setApplicationType(data.application_type || "New Recognition");
+                setSchoolCategory(data.school_category || "");
+                setCurriculumPrimary(data.curriculum_primary || "");
+                setCurriculumUpperPrimary(data.curriculum_upper_primary || "");
+                setIsMinority(data.is_minority || "");
+                setMinorityCommunity(data.minority_community || "");
+                setIsRTE(data.is_rte || "");
+                setIsVocational(data.is_vocational || "");
+                setFundingSource(data.funding_source || "");
+                setSanctionOrderNumber(data.sanction_order_number || "");
+                setIsPreVocational(data.is_pre_vocational || "");
+                setIsSkillCenter(data.is_skill_center || "");
+                setIsResidential(data.is_residential || "");
+                setResidentialType(data.residential_type || "");
+                setIsShift(data.is_shift || "");
+                setIsMotherTongue(data.is_mother_tongue || "");
+                setDistPrimary(data.dist_primary || "");
+                setDistUpperPrimary(data.dist_upper_primary || "");
+                setDistSecondary(data.dist_secondary || "");
+                setDistHigherSecondary(data.dist_higher_secondary || "");
+                setIsAllWeatherRoad(data.is_all_weather_road || "");
+                setInstructionalDays(data.instructional_days || "");
+                setIsCCE(data.is_cce || "");
+                setIsRecordsMaintained(data.is_records_maintained || "");
+                setIsRecordsShared(data.is_records_shared || "");
+                setHasAnganwadi(data.has_anganwadi || "");
+                setAnganwadiCentersCount(data.anganwadi_centers_count || "");
+                if (Array.isArray(data.anganwadi_rows) && data.anganwadi_rows.length > 0) {
+                    setAnganwadiRows(data.anganwadi_rows);
+                }
+                setHasBalavatika(data.has_balavatika || "");
+                setHasOoSC(data.has_oosc || "");
+                setHasOoSCST(data.has_oosc_st || "");
+                setRemedialStudents(data.remedial_students || "");
+                setLearningEnhancementStudents(data.learning_enhancement_students || "");
+                setAcademicInspections(data.academic_inspections || "");
+                setCrcVisits(data.crc_visits || "");
+                setBrcVisits(data.brc_visits || "");
+                setDistrictVisits(data.district_visits || "");
+                setRegionalVisits(data.regional_visits || "");
+                setHqVisits(data.hq_visits || "");
+                setHasSMC(data.has_smc || "");
+                setHasSDMC(data.has_sdmc || "");
+                setSmcMeetings(data.smc_meetings || "");
+                setHasSMCPlan(data.has_smc_plan || "");
+                setSmcPlanYear(data.smc_plan_year || "");
+                setHasSBC(data.has_sbc || "");
+                setHasAC(data.has_ac || "");
+                setHasPTA(data.has_pta || "");
+                setPtaMeetings(data.pta_meetings || "");
+                setHasPFMS(data.has_pfms || "");
+                setPfmsId(data.pfms_id || "");
+                setHasMultiClass(data.has_multi_class || "");
+                if (Array.isArray(data.multi_class_rows) && data.multi_class_rows.length > 0) {
+                    setMultiClassRows(data.multi_class_rows);
+                }
+                setIsSchoolComplex(data.is_school_complex || "");
+                setIsHubSchool(data.is_hub_school || "");
+                setComplexPrePrimary(data.complex_pre_primary || "");
+                setComplexPrimary(data.complex_primary || "");
+                setComplexUpperPrimary(data.complex_upper_primary || "");
+                setComplexSecondary(data.complex_secondary || "");
+                setComplexHigherSecondary(data.complex_higher_secondary || "");
+                setComplexTotal(data.complex_total || "");
+                setHasEBSB(data.has_ebsb || "");
+                setHasFitIndia(data.has_fit_india || "");
+                setHasHolisticReportCard(data.has_holistic_report_card || "");
+                setPmPoshanTotalDays(data.pm_poshan_total_days || "");
+                setPmPoshanDaysPerWeek(data.pm_poshan_days_per_week || "");
+                setPmPoshanDaysPerMonth(data.pm_poshan_days_per_month || "");
+                setPmPoshanBalvatika(data.pm_poshan_balvatika || "");
+                setHasAgreedToFirstYearActivities(data.has_agreed_to_first_year_activities || false);
+                setHasDisasterPlan(data.has_disaster_plan || "");
+                setHasStructuralAudit(data.has_structural_audit || "");
+                setHasNonStructuralAudit(data.has_non_structural_audit || "");
+                setHasCCTV(data.has_cctv || "");
+                setHasFireExtinguishers(data.has_fire_extinguishers || "");
+                setHasNodalTeacher(data.has_nodal_teacher || "");
+                setHasSafetyTraining(data.has_safety_training || "");
+                setSafetyTrainingDate(data.safety_training_date || "");
+                setDisasterManagementTaught(data.disaster_management_taught || "");
+                setHasSelfDefenceGrant(data.has_self_defence_grant || "");
+                setSelfDefenceUpperPrimary(data.self_defence_upper_primary || "");
+                setSelfDefenceSecondary(data.self_defence_secondary || "");
+                setSelfDefenceHigherSecondary(data.self_defence_higher_secondary || "");
+                setHasSafetyDisplayBoard(data.has_safety_display_board || "");
+                setHasFirstLevelCounselor(data.has_first_level_counselor || "");
+                setSafetyAuditFrequency(data.safety_audit_frequency || "");
+                setHasTeacherPhotos(data.has_teacher_photos || "");
+                setHasVidyaPravesh(data.has_vidya_pravesh || "");
+                setStudentAttendanceCapture(data.student_attendance_capture || "");
+                setTeacherAttendanceCapture(data.teacher_attendance_capture || "");
+                setHasYouthClub(data.has_youth_club || "");
+                setHasEcoClub(data.has_eco_club || "");
+                setHasTeacherID(data.has_teacher_id || "");
+                setSssaCertification(data.sssa_certification || "");
+                setHasIctRegister(data.has_ict_register || "");
+                setHasSportsRegister(data.has_sports_register || "");
+                setHasLibraryRegister(data.has_library_register || "");
+                setIctRegisterDate(data.ict_register_date || "");
+                setSportsRegisterDate(data.sports_register_date || "");
+                setLibraryRegisterDate(data.library_register_date || "");
+                if (Array.isArray(data.sec_156) && data.sec_156.length > 0) {
+                    setSec156(data.sec_156);
+                }
+                if (Array.isArray(data.sec_157) && data.sec_157.length > 0) {
+                    setSec157(data.sec_157);
+                }
+                if (data.udise_number) setUdiseVerified(true);
+                break;
+            }
+
+            case 1: {
+                const re = data.receipts_expenditure || data || {};
+                setExpMaintenance(re.exp_maintenance || "");
+                setExpTeachers(re.exp_teachers || "");
+                setExpConstruction(re.exp_construction || "");
+                setExpOthers(re.exp_others || "");
+                if (Array.isArray(data.grants) && data.grants.length > 0) {
+                    setGrants(
+                        data.grants.map((g: any) => ({
+                            grantName: g.grant_name || g.grantName || "",
+                            receipt: g.receipt || "",
+                            expenditure: g.expenditure || "",
+                        }))
+                    );
+                }
+                if (Array.isArray(data.assistance) && data.assistance.length > 0) {
+                    setAssistance(
+                        data.assistance.map((a: any) => ({
+                            source: a.source || "",
+                            isReceived: a.is_received || a.isReceived || "",
+                            name: a.name || "",
+                            amount: a.amount || "",
+                        }))
+                    );
+                }
+                setHasIctRegister(re.has_ict_register || "");
+                setHasSportsRegister(re.has_sports_register || "");
+                setHasLibraryRegister(re.has_library_register || "");
+                setIctRegisterDate(re.ict_register_date || "");
+                setSportsRegisterDate(re.sports_register_date || "");
+                setLibraryRegisterDate(re.library_register_date || "");
+                break;
+            }
+
+            case 2: {
+                const ld = data.legal_details || data || {};
+                setIsVocational(ld.is_vocational || "");
+                setFundingSource(ld.funding_source || "");
+                setSanctionOrderNumber(ld.sanction_order_number || "");
+                setIsMinority(ld.is_minority || "");
+                setMinorityCommunity(ld.minority_community || "");
+                setIsRTE(ld.is_rte || "");
+                setCurriculumPrimary(ld.curriculum_primary || "");
+                setCurriculumUpperPrimary(ld.curriculum_upper_primary || "");
+                if (Array.isArray(data.vocational_rows) && data.vocational_rows.length > 0) {
+                    setVocationalRows(
+                        data.vocational_rows.map((r: any) => ({
+                            grade: r.grade || "",
+                            sector: r.sector || "",
+                            jobRole: r.job_role || r.jobRole || "",
+                            yearStarting: r.year_starting || r.yearStarting || "",
+                        }))
+                    );
+                }
+                break;
+            }
+
+            case 3: {
+                setAddress(data.address || "");
+                setPinCode(data.pin_code || data.pinCode || "");
+                setRevenueBlock(data.revenue_block || "");
+                setVillageName(data.village_name || "");
+                setGramPanchayat(data.gram_panchayat || "");
+                setUrbanLocalBody(data.urban_local_body || "");
+                setWardName(data.ward_name || "");
+                setCrcName(data.crc_name || "");
+                setAssemblyConstituency(data.assembly_constituency || "");
+                setParliamentaryConstituency(data.parliamentary_constituency || "");
+                setDistrict(data.district || "");
+                setTaluka(data.taluka || "");
+                break;
+            }
+
+            case 4: {
+                const infra = data.infrastructure || data || {};
+                setBuildingStatus(infra.building_status || "");
+                setActiveBuildingBlocks(infra.active_building_blocks || "");
+                setBuildingPucca(infra.building_pucca || "");
+                setBuildingPartiallyPucca(infra.building_partially_pucca || "");
+                setBuildingKuchcha(infra.building_kuchcha || "");
+                setBuildingTent(infra.building_tent || "");
+                setStoreySingle(infra.storey_single || "");
+                setStoreyDouble(infra.storey_double || "");
+                setStoreyTriple(infra.storey_triple || "");
+                setStoreyMulti(infra.storey_multi || "");
+                setBuildingDilapidated(infra.building_dilapidated || "");
+                setBuildingUnderConstruction(infra.building_under_construction || "");
+                setClassroomsPrePrimary(infra.classrooms_pre_primary || "");
+                setClassroomsPrimary(infra.classrooms_primary || "");
+                setClassroomsUpperPrimary(infra.classrooms_upper_primary || "");
+                setClassroomsSecondary(infra.classrooms_secondary || "");
+                setClassroomsHigherSecondary(infra.classrooms_higher_secondary || "");
+                setClassroomsNotInUse(infra.classrooms_not_in_use || "");
+                setTotalInstructionalRooms(infra.total_instructional_rooms || "");
+                setClassroomsUnderConstruction(infra.classrooms_under_construction || "");
+                setClassroomsDilapidated(infra.classrooms_dilapidated || "");
+                const cc = infra.classroom_conditions || {};
+                setCondPuccaGood(infra.cond_pucca_good || cc.pucca_good || "");
+                setCondPuccaMinor(infra.cond_pucca_minor || cc.pucca_minor || "");
+                setCondPuccaMajor(infra.cond_pucca_major || cc.pucca_major || "");
+                setCondPartiallyPuccaGood(infra.cond_partially_pucca_good || cc.partially_pucca_good || "");
+                setCondPartiallyPuccaMinor(infra.cond_partially_pucca_minor || cc.partially_pucca_minor || "");
+                setCondPartiallyPuccaMajor(infra.cond_partially_pucca_major || cc.partially_pucca_major || "");
+                setCondKuchchaGood(infra.cond_kuchcha_good || cc.kuchcha_good || "");
+                setCondKuchchaMinor(infra.cond_kuchcha_minor || cc.kuchcha_minor || "");
+                setCondKuchchaMajor(infra.cond_kuchcha_major || cc.kuchcha_major || "");
+                setCondTentGood(infra.cond_tent_good || cc.tent_good || "");
+                setCondTentMinor(infra.cond_tent_minor || cc.tent_minor || "");
+                setCondTentMajor(infra.cond_tent_major || cc.tent_major || "");
+                setBoundaryWall(infra.boundary_wall || "");
+                setHasElectricity(infra.has_electricity || "");
+                setClassroomsWithFans(infra.classrooms_with_fans || "");
+                setClassroomsWithACs(infra.classrooms_with_acs || "");
+                setClassroomsWithHeaters(infra.classrooms_with_heaters || "");
+                setHasSolarPanel(infra.has_solar_panel || "");
+                setHasPrincipalRoom(infra.has_principal_room || "");
+                setHasLibraryRoom(infra.has_library_room || "");
+                setHasVicePrincipalRoom(infra.has_vice_principal_room || "");
+                setHasGirlsCommonRoom(infra.has_girls_common_room || "");
+                setHasStaffroom(infra.has_staffroom || "");
+                setHasCoCurricularRoom(infra.has_co_curricular_room || "");
+                setLabCount(infra.lab_count || "");
+                setHasToilets(infra.has_toilets || "");
+                setToiletBoysTotal(infra.toilet_boys_total || "");
+                setToiletBoysFunc(infra.toilet_boys_func || "");
+                setToiletBoysWater(infra.toilet_boys_water || "");
+                setToiletGirlsTotal(infra.toilet_girls_total || "");
+                setToiletGirlsFunc(infra.toilet_girls_func || "");
+                setToiletGirlsWater(infra.toilet_girls_water || "");
+                setCwsnBoysTotal(infra.cwsn_boys_total || "");
+                setCwsnBoysFunc(infra.cwsn_boys_func || "");
+                setCwsnBoysWater(infra.cwsn_boys_water || "");
+                setCwsnGirlsTotal(infra.cwsn_girls_total || "");
+                setCwsnGirlsFunc(infra.cwsn_girls_func || "");
+                setCwsnGirlsWater(infra.cwsn_girls_water || "");
+                setUrinalsBoysTotal(infra.urinals_boys_total || "");
+                setUrinalsGirlsTotal(infra.urinals_girls_total || "");
+                setToiletsConstBoys(infra.toilets_const_boys || "");
+                setToiletsConstGirls(infra.toilets_const_girls || "");
+                setHasHandWashingNearToilets(infra.has_hand_washing_near_toilets || "");
+                setToiletLocation(infra.toilet_location || "");
+                setHasIncinerator(infra.has_incinerator || "");
+                setHasPadVendingMachine(infra.has_pad_vending_machine || "");
+                setHasHandWashingBeforeMeal(infra.has_hand_washing_before_meal || "");
+                setWashPointsCount(infra.wash_points_count || "");
+                setWaterHandPump(infra.water_hand_pump || "");
+                setWaterProtectedWell(infra.water_protected_well || "");
+                setWaterUnprotectedWell(infra.water_unprotected_well || "");
+                setWaterTapWater(infra.water_tap_water || "");
+                setWaterPackagedWater(infra.water_packaged_water || "");
+                setWaterOthers(infra.water_others || "");
+                setHasWaterPurifier(infra.has_water_purifier || "");
+                setHasWaterQualityTested(infra.has_water_quality_tested || "");
+                setHasRainWaterHarvesting(infra.has_rain_water_harvesting || "");
+                setHasLibrary(infra.has_library || "");
+                setLibraryBooks(infra.library_books || "");
+                setHasBookBank(infra.has_book_bank || "");
+                setBookBankBooks(infra.book_bank_books || "");
+                setHasReadingCorner(infra.has_reading_corner || "");
+                setReadingCornerBooks(infra.reading_corner_books || "");
+                setHasFullTimeLibrarian(infra.has_full_time_librarian || "");
+                setSubscribesNewspapers(infra.subscribes_newspapers || "");
+                setLibraryBooksBorrowed(infra.library_books_borrowed || "");
+                setLandArea(infra.land_area || "");
+                setLandAreaUnit(infra.land_area_unit || "Square Meter");
+                setHasExpansionLand(infra.has_expansion_land || "");
+                setExpansionType(infra.expansion_type || "");
+                setAdditionalClassroomsNeeded(infra.additional_classrooms_needed || "");
+                setHasPlayground(infra.has_playground || "");
+                setPlaygroundArea(infra.playground_area || "");
+                setPlaygroundUnit(infra.playground_unit || "Square Meter");
+                setHasAlternatePlayground(infra.has_alternate_playground || "");
+                setHasHealthCheckup(infra.has_health_checkup || "");
+                setHealthCheckupsCount(infra.health_checkups_count || "");
+                setHealthParamsHeight(infra.health_params_height || "");
+                setHealthParamsWeight(infra.health_params_weight || "");
+                setHealthParamsEyes(infra.health_params_eyes || "");
+                setHealthParamsDental(infra.health_params_dental || "");
+                setHealthParamsThroat(infra.health_params_throat || "");
+                setDewormingTablets(infra.deworming_tablets || "");
+                setIronFolicTablets(infra.iron_folic_tablets || "");
+                setMaintainsHealthRecords(infra.maintains_health_records || "");
+                setHasThermalScanner(infra.has_thermal_scanner || "");
+                setHasFirstAid(infra.has_first_aid || "");
+                setHasEssentialMedicines(infra.has_essential_medicines || "");
+                setHasRamp(infra.has_ramp || "");
+                setHasHandRails(infra.has_hand_rails || "");
+                setHasSpecialEducator(infra.has_special_educator || "");
+                setHasKitchenGarden(infra.has_kitchen_garden || "");
+                setHasKitchenShed(infra.has_kitchen_shed || "");
+                setDustbinsClassroom(infra.dustbins_classroom || "");
+                setDustbinsToilets(infra.dustbins_toilets || "");
+                setDustbinsKitchen(infra.dustbins_kitchen || "");
+                setHasStudentFurniture(infra.has_student_furniture || "");
+                setFurnitureStudentCount(infra.furniture_student_count || "");
+                setHasStaffQuarters(infra.has_staff_quarters || "");
+                setHasTinkeringLab(infra.has_tinkering_lab || "");
+                setAtlId(infra.atl_id || "");
+                setHasIntegratedScienceLab(infra.has_integrated_science_lab || "");
+                setHostelPrimaryAvailability(infra.hostel_primary_availability || "");
+                setHostelPrimaryBoys(infra.hostel_primary_boys || "");
+                setHostelPrimaryGirls(infra.hostel_primary_girls || "");
+                setHostelUpperPrimaryAvailability(infra.hostel_upper_primary_availability || "");
+                setHostelUpperPrimaryBoys(infra.hostel_upper_primary_boys || "");
+                setHostelUpperPrimaryGirls(infra.hostel_upper_primary_girls || "");
+                setHostelSecondaryAvailability(infra.hostel_secondary_availability || "");
+                setHostelSecondaryBoys(infra.hostel_secondary_boys || "");
+                setHostelSecondaryGirls(infra.hostel_secondary_girls || "");
+                setHostelHigherSecondaryAvailability(infra.hostel_higher_secondary_availability || "");
+                setHostelHigherSecondaryBoys(infra.hostel_higher_secondary_boys || "");
+                setHostelHigherSecondaryGirls(infra.hostel_higher_secondary_girls || "");
+                setEquipAudioVisual(infra.equip_audio_visual || "");
+                setEquipBiometric(infra.equip_biometric || "");
+                setEquipScienceKit(infra.equip_science_kit || "");
+                setEquipMathKit(infra.equip_math_kit || "");
+                setHasIctLab(infra.has_ict_lab || "");
+                setIctLabsCount(infra.ict_labs_count || "");
+                setTotalFunctionalIctDevices(infra.total_functional_ict_devices || "");
+                setHasSeparateIctLabRoom(infra.has_separate_ict_lab_room || "");
+                setHasSamagraIctLab(infra.has_samagra_ict_lab || "");
+                setSamagraIctYear(infra.samagra_ict_year || "");
+                setIsSamagraIctFunctional(infra.is_samagra_ict_functional || "");
+                setSamagraIctModel(infra.samagra_ict_model || "");
+                setSamagraIctInstructorType(infra.samagra_ict_instructor_type || "");
+                setHasInternet(infra.has_internet || "");
+                setInternetType(infra.internet_type || "");
+                setInternetPedagogical(infra.internet_pedagogical || "");
+                setHasDigitalLibrary(infra.has_digital_library || "");
+                setDigitalLibraryBooks(infra.digital_library_books || "");
+                if (Array.isArray(data.higher_secondary_labs) && data.higher_secondary_labs.length > 0) {
+                    setHigherSecondaryLabs(
+                        data.higher_secondary_labs.map((l: any) => ({
+                            name: l.name || "",
+                            availability: l.availability || "",
+                            separateRoom: l.separate_room || l.separateRoom || "",
+                        }))
+                    );
+                }
+                if (Array.isArray(data.digital_equip_items) && data.digital_equip_items.length > 0) {
+                    setDigitalEquipItems(
+                        data.digital_equip_items.map((d: any) => ({
+                            name: d.name || "",
+                            total: d.total || "",
+                            pedagogical: d.pedagogical || "",
+                        }))
+                    );
+                }
+                if (Array.isArray(data.digital_teaching_tools) && data.digital_teaching_tools.length > 0) {
+                    setDigitalTeachingTools(
+                        data.digital_teaching_tools.map((d: any) => ({
+                            name: d.name || "",
+                            availability: d.availability || "",
+                        }))
+                    );
+                }
+                break;
+            }
+
+            case 5: {
+                const summary = data.staff_summary || {};
+                setStaffCounts({
+                    regular: summary.count_regular || "",
+                    nonRegular: summary.count_non_regular || "",
+                    nonTeaching: summary.count_non_teaching || "",
+                    vocational: summary.count_vocational || "",
+                });
+                setStaffRequired({
+                    prePrimary: summary.required_pre_primary || "",
+                    primary: summary.required_primary || "",
+                    upperPrimary: summary.required_upper_primary || "",
+                    secondary: summary.required_secondary || "",
+                    higherSecondary: summary.required_higher_secondary || "",
+                });
+                if (Array.isArray(data.teachers)) {
+                    setTeachers(
+                        data.teachers.map((t: any) => ({
+                            id: t.id || "",
+                            name: t.name || "",
+                            gender: t.gender || "",
+                            dob: t.dob || "",
+                            socialCategory: t.social_category || t.socialCategory || "",
+                            isCWSN: t.is_cwsn || t.isCWSN || "2-No",
+                            disability: t.disability || "1-Not applicable",
+                            academicLevel: t.academic_level || t.academicLevel || "",
+                            academicDegree: t.academic_degree || t.academicDegree || "",
+                            professionalQual: t.professional_qual || t.professionalQual || "",
+                            nationalCode: t.national_code || t.nationalCode || "",
+                            teacherCodeState: t.teacher_code_state || t.teacherCodeState || "",
+                            mobile: t.mobile || "",
+                            email: t.email || "",
+                            aadhaarNumber: t.aadhaar_number || t.aadhaarNumber || "",
+                            aadhaarName: t.aadhaar_name || t.aadhaarName || "",
+                            crrNumber: t.crr_number || t.crrNumber || "",
+                            subjectLevelMath: t.subject_level_math || t.subjectLevelMath || "1-Not Studied",
+                            subjectLevelScience: t.subject_level_science || t.subjectLevelScience || "1-Not Studied",
+                            subjectLevelEnglish: t.subject_level_english || t.subjectLevelEnglish || "1-Not Studied",
+                            subjectLevelSocialScience: t.subject_level_social_science || t.subjectLevelSocialScience || "1-Not Studied",
+                            subjectLevelLanguage: t.subject_level_language || t.subjectLevelLanguage || "1-Not Studied",
+                            natureOfAppointment: t.nature_of_appointment || t.natureOfAppointment || "",
+                            teacherType: t.teacher_type || t.teacherType || "",
+                            appointedLevel: t.appointed_level || t.appointedLevel || "",
+                            classesTaught: t.classes_taught || t.classesTaught || "",
+                            dateJoiningService: t.date_joining_service || t.dateJoiningService || "",
+                            dateJoiningPresentSchool: t.date_joining_present_school || t.dateJoiningPresentSchool || "",
+                            appointedForSubject: t.appointed_for_subject || t.appointedForSubject || "",
+                            mainSubject1: t.main_subject_1 || t.mainSubject1 || "",
+                            mainSubject2: t.main_subject_2 || t.mainSubject2 || "",
+                            isDeputation: t.is_deputation || t.isDeputation || "2-No",
+                            isGuestContractual: t.is_guest_contractual || t.isGuestContractual || "2-No",
+                            trainingNeeded: t.training_needed || t.trainingNeeded || [],
+                            trainingReceived: t.training_received || t.trainingReceived || [],
+                            languages: t.languages || [],
+                            hsMasteryPhysics: t.hs_mastery_physics || t.hsMasteryPhysics || "1-Below Secondary",
+                            hsMasteryChemistry: t.hs_mastery_chemistry || t.hsMasteryChemistry || "1-Below Secondary",
+                            hsMasteryBiology: t.hs_mastery_biology || t.hsMasteryBiology || "1-Below Secondary",
+                            hsMasteryMath: t.hs_mastery_math || t.hsMasteryMath || "1-Below Secondary",
+                            trainedCWSN: t.trained_cwsn || t.trainedCWSN || "2-No",
+                            trainedComputer: t.trained_computer || t.trainedComputer || "2-No",
+                            isNishthaTrained: t.is_nishtha_trained || t.isNishthaTrained || "2-No",
+                            nonTeachingDays: t.non_teaching_days || t.nonTeachingDays || "0",
+                            trainedSafety: t.trained_safety || t.trainedSafety || "2-No",
+                            trainedCyberSafety: t.trained_cyber_safety || t.trainedCyberSafety || "2-No",
+                            trainedCWSNIdentification: t.trained_cwsn_identification || t.trainedCWSNIdentification || "2-No",
+                            isTETQualified: t.is_tet_qualified || t.isTETQualified || "2-No",
+                            tetYear: t.tet_year || t.tetYear || "",
+                            isCapableDigital: t.is_capable_digital || t.isCapableDigital || "2-No",
+                        }))
+                    );
+                }
+                if (Array.isArray(data.non_teaching_staff || data.non_teaching)) {
+                    setNonTeachingStaff(
+                        (data.non_teaching_staff || data.non_teaching || []).map((s: any) => ({
+                            id: s.id || "",
+                            name: s.name || "",
+                            gender: s.gender || "1-Male",
+                            dob: s.dob || "",
+                            stateCode: s.state_code || s.stateCode || "",
+                            socialCategory: s.social_category || s.socialCategory || "1-General",
+                            academicLevel: s.academic_level || s.academicLevel || "1-Below Secondary",
+                            degree: s.degree || "",
+                            mobile: s.mobile || "",
+                            email: s.email || "",
+                            aadhaarNumber: s.aadhaar_number || s.aadhaarNumber || "",
+                            aadhaarName: s.aadhaar_name || s.aadhaarName || "",
+                            disability: s.disability || "1-Not applicable",
+                            natureOfAppointment: s.nature_of_appointment || s.natureOfAppointment || "1-Regular",
+                            dateJoiningService: s.date_joining_service || s.dateJoiningService || "",
+                            dateJoiningSchool: s.date_joining_school || s.dateJoiningSchool || "",
+                            currentPost: s.current_post || s.currentPost || "1-Accountant",
+                        }))
+                    );
+                }
+                if (Array.isArray(data.vocational_staff || data.vocational)) {
+                    setVocationalStaff(
+                        (data.vocational_staff || data.vocational || []).map((v: any) => ({
+                            id: v.id || "",
+                            name: v.name || "",
+                            gender: v.gender || "1-Male",
+                            dob: v.dob || "",
+                            vtpCode: v.vtp_code || v.vtpCode || "",
+                            socialCategory: v.social_category || v.socialCategory || "1-General",
+                            academicLevel: v.academic_level || v.academicLevel || "1-Below Secondary",
+                            degree: v.degree || "",
+                            professionalQual: v.professional_qual || v.professionalQual || "55-None",
+                            mobile: v.mobile || "",
+                            email: v.email || "",
+                            aadhaarNumber: v.aadhaar_number || v.aadhaarNumber || "",
+                            aadhaarName: v.aadhaar_name || v.aadhaarName || "",
+                            disability: v.disability || "1-Not applicable",
+                            natureOfAppointment: v.nature_of_appointment || v.natureOfAppointment || "1-Regular",
+                            dateJoiningService: v.date_joining_service || v.dateJoiningService || "",
+                            dateJoiningSchool: v.date_joining_school || v.dateJoiningSchool || "",
+                            typeOfTeacher: v.type_of_teacher || v.typeOfTeacher || "1-Resource Person",
+                            classesTaught: v.classes_taught || v.classesTaught || "5-Secondary only",
+                            sector: v.sector || "69-IT-ITES",
+                            jobRole: v.job_role || v.jobRole || "",
+                            experience: v.experience || "1-Less than 1 year",
+                            receivedInduction: v.received_induction || v.receivedInduction || "2-No",
+                        }))
+                    );
+                }
+                break;
+            }
+
+            case 6: {
+                const safety = data.safety || data || {};
+                setHasDisasterPlan(safety.has_disaster_plan || "");
+                setHasStructuralAudit(safety.has_structural_audit || "");
+                setHasNonStructuralAudit(safety.has_non_structural_audit || "");
+                setHasCCTV(safety.has_cctv || "");
+                setHasFireExtinguishers(safety.has_fire_extinguishers || "");
+                setHasNodalTeacher(safety.has_nodal_teacher || "");
+                setHasSafetyTraining(safety.has_safety_training || "");
+                setSafetyTrainingDate(safety.safety_training_date || "");
+                setDisasterManagementTaught(safety.disaster_management_taught || "");
+                setHasSelfDefenceGrant(safety.has_self_defence_grant || "");
+                setSelfDefenceUpperPrimary(safety.self_defence_upper_primary || "");
+                setSelfDefenceSecondary(safety.self_defence_secondary || "");
+                setSelfDefenceHigherSecondary(safety.self_defence_higher_secondary || "");
+                setHasSafetyDisplayBoard(safety.has_safety_display_board || "");
+                setHasFirstLevelCounselor(safety.has_first_level_counselor || "");
+                setSafetyAuditFrequency(safety.safety_audit_frequency || "");
+                break;
+            }
+
+            case 7: {
+                if (Array.isArray(data.section_configs) && data.section_configs.length > 0) {
+                    setSectionConfigs(
+                        data.section_configs.map((c: any) => ({
+                            className: c.class_name || c.className || "",
+                            numberOfSections: c.number_of_sections || c.numberOfSections || 1,
+                            sectionNames: c.section_names || c.sectionNames || ["A"],
+                        }))
+                    );
+                    setIsSectionConfigSaved(true);
+                }
+                if (Array.isArray(data.students) && data.students.length > 0) {
+                    setStudents(
+                        data.students.map((s: any) => ({
+                            id: s.id || "",
+                            name: s.name || "",
+                            gender: s.gender || "",
+                            dob: s.dob || "",
+                            motherName: s.mother_name || s.motherName || "",
+                            fatherName: s.father_name || s.fatherName || "",
+                            guardianName: s.guardian_name || s.guardianName || "",
+                            aadhaarNumber: s.aadhaar_number || s.aadhaarNumber || "",
+                            aadhaarName: s.aadhaar_name || s.aadhaarName || "",
+                            address: s.address || "",
+                            pincode: s.pincode || "",
+                            mobile: s.mobile || "",
+                            alternateMobile: s.alternate_mobile || s.alternateMobile || "",
+                            email: s.email || "",
+                            motherTongue: s.mother_tongue || s.motherTongue || "19-English",
+                            socialCategory: s.social_category || s.socialCategory || "1-General",
+                            minorityGroup: s.minority_group || s.minorityGroup || "7-Not Applicable",
+                            isBPL: s.is_bpl || s.isBPL || "2-No",
+                            isAAY: s.is_aay || s.isAAY || "2-No",
+                            isEWS: s.is_ews || s.isEWS || "2-No",
+                            isCWSN: s.is_cwsn || s.isCWSN || "2-No",
+                            impairmentType: s.impairment_type || s.impairmentType || "1-Not applicable",
+                            hasDisabilityCertificate: s.has_disability_certificate || s.hasDisabilityCertificate || "2-No",
+                            isIndianNational: s.is_indian_national || s.isIndianNational || "1-Yes",
+                            outOfSchoolChild: s.out_of_school_child || s.outOfSchoolChild || "2-No",
+                            mainstreamingYear: s.mainstreaming_year || s.mainstreamingYear || "",
+                            bloodGroup: s.blood_group || s.bloodGroup || "9-Not Known",
+                            academicYear: s.academic_year || s.academicYear || "2024-25",
+                            schoolUdiseCode: s.school_udise_code || s.schoolUdiseCode || "",
+                            studentGrade: s.student_grade || s.studentGrade || "",
+                            studentNationalCode: s.student_national_code || s.studentNationalCode || "",
+                            studentSection: s.student_section || s.studentSection || "A",
+                            rollNumber: s.roll_number || s.rollNumber || "",
+                            admissionNumber: s.admission_number || s.admissionNumber || "",
+                            admissionDate: s.admission_date || s.admissionDate || "",
+                            instructionMedium: s.instruction_medium || s.instructionMedium || "",
+                            languageGroup: s.language_group || s.languageGroup || "",
+                            academicStream: s.academic_stream || s.academicStream || "",
+                            prevYearStatus: s.prev_year_status || s.prevYearStatus || "1-Studied at Current/Same School",
+                            prevYearGrade: s.prev_year_grade || s.prevYearGrade || "",
+                            isAdmittedRTE: s.is_admitted_rte || s.isAdmittedRTE || "2-No",
+                            rteAmountClaimed: s.rte_amount_claimed || s.rteAmountClaimed || "",
+                            prevClassResult: s.prev_class_result || s.prevClassResult || "",
+                            prevClassMarks: s.prev_class_marks || s.prevClassMarks || "",
+                            prevYearAttendance: s.prev_year_attendance || s.prevYearAttendance || "",
+                            hasFacilities: s.has_facilities || s.hasFacilities || "2-No",
+                            facilitiesReceived: s.facilities_received || s.facilitiesReceived || [],
+                            hasCWSNFacilities: s.has_cwsn_facilities || s.hasCWSNFacilities || "2-No",
+                            cwsnFacilitiesReceived: s.cwsn_facilities_received || s.cwsnFacilitiesReceived || [],
+                            screenedSLD: s.screened_sld || s.screenedSLD || "2-No",
+                            sldType: s.sld_type || s.sldType || "",
+                            screenedASD: s.screened_asd || s.screenedASD || "2-No",
+                            screenedADHD: s.screened_adhd || s.screenedADHD || "2-No",
+                            isGifted: s.is_gifted || s.isGifted || "2-No",
+                            appearedCompetitions: s.appeared_competitions || s.appearedCompetitions || "2-No",
+                            participatesNCC: s.participates_ncc || s.participatesNCC || "2-No",
+                            digitalCapable: s.digital_capable || s.digitalCapable || "2-No",
+                            height: s.height || "",
+                            weight: s.weight || "",
+                            distanceToSchool: s.distance_to_school || s.distanceToSchool || "",
+                            guardianEducation: s.guardian_education || s.guardianEducation || "",
+                            undertookVocational: s.undertook_vocational || s.undertookVocational || "2-No",
+                            vocationalTrade: s.vocational_trade || s.vocationalTrade || "",
+                            vocationalJobRole: s.vocational_job_role || s.vocationalJobRole || "",
+                            vocationalPrevClassExam: s.vocational_prev_class_exam || s.vocationalPrevClassExam || "3-Not Applicable",
+                            vocationalPrevClassMarks: s.vocational_prev_class_marks || s.vocationalPrevClassMarks || "",
+                            currentYearResult: s.current_year_result || s.currentYearResult || "",
+                            currentYearMarks: s.current_year_marks || s.currentYearMarks || "",
+                            currentYearAttendance: s.current_year_attendance || s.currentYearAttendance || "",
+                        }))
+                    );
+                }
+                break;
+            }
+
+            case 8: {
+                const ve = data.vocational_education || data || {};
+                setVocationalGuestLecturers(ve.vocational_guest_lecturers || "");
+                setVocationalIndustryVisits(ve.vocational_industry_visits || "");
+                setVocationalIndustryLinkages(ve.vocational_industry_linkages || "");
+                setPlacEnrolled10(ve.plac_enrolled_10 || "");
+                setPlacPassed10(ve.plac_passed_10 || "");
+                setPlacSelfEmp10(ve.plac_self_emp_10 || "");
+                setPlacPlaced10(ve.plac_placed_10 || "");
+                setPlacEnrolled12(ve.plac_enrolled_12 || "");
+                setPlacPassed12(ve.plac_passed_12 || "");
+                setPlacSelfEmp12(ve.plac_self_emp_12 || "");
+                setPlacPlaced12(ve.plac_placed_12 || "");
+                if (Array.isArray(data.vocational_labs) && data.vocational_labs.length > 0) {
+                    setVocationalLabs(
+                        data.vocational_labs.map((l: any) => ({
+                            sector: l.sector || "",
+                            condition: l.condition || "",
+                            separateRoom: l.separate_room || l.separateRoom || "",
+                        }))
+                    );
+                }
+                if (Array.isArray(data.vocational_staff || data.vocational)) {
+                    setVocationalStaff(
+                        (data.vocational_staff || data.vocational || []).map((v: any) => ({
+                            id: v.id || "",
+                            name: v.name || "",
+                            gender: v.gender || "1-Male",
+                            dob: v.dob || "",
+                            vtpCode: v.vtp_code || v.vtpCode || "",
+                            socialCategory: v.social_category || v.socialCategory || "1-General",
+                            academicLevel: v.academic_level || v.academicLevel || "1-Below Secondary",
+                            degree: v.degree || "",
+                            professionalQual: v.professional_qual || v.professionalQual || "55-None",
+                            mobile: v.mobile || "",
+                            email: v.email || "",
+                            aadhaarNumber: v.aadhaar_number || v.aadhaarNumber || "",
+                            aadhaarName: v.aadhaar_name || v.aadhaarName || "",
+                            disability: v.disability || "1-Not applicable",
+                            natureOfAppointment: v.nature_of_appointment || v.natureOfAppointment || "1-Regular",
+                            dateJoiningService: v.date_joining_service || v.dateJoiningService || "",
+                            dateJoiningSchool: v.date_joining_school || v.dateJoiningSchool || "",
+                            typeOfTeacher: v.type_of_teacher || v.typeOfTeacher || "1-Resource Person",
+                            classesTaught: v.classes_taught || v.classesTaught || "5-Secondary only",
+                            sector: v.sector || "69-IT-ITES",
+                            jobRole: v.job_role || v.jobRole || "",
+                            experience: v.experience || "1-Less than 1 year",
+                            receivedInduction: v.received_induction || v.receivedInduction || "2-No",
+                        }))
+                    );
+                }
+                break;
+            }
+        }
+    };
+
+
+    const apiPut = async (path: string, body: any) => {
+        if (!token) return;
+
+        const res = await fetch(`${API_BASE_URL}${path}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify(body),
+        });
+
+        if (!res.ok) throw new Error("API error");
+    };
+
+    const apiDelete = async (path: string) => {
+        if (!token) return;
+
+        await fetch(`${API_BASE_URL}${path}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+        });
+    };
+
+    const verifyUdise = async () => {
+        if (!udiseNumber || !token) return;
+
+        setUdiseVerifying(true);
+        console.log("TOKEN:", token);
+
+        try {
+            const res = await fetch(
+                `${API_BASE_URL}/profile/verify-udise?udise_number=${udiseNumber}`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,   // 🔥 THIS IS THE FIX
+                    },
+                }
+            );
+
+            if (!res.ok) {
+                throw new Error("Invalid authentication credentials");
+            }
+
+            const data = await res.json();
+            setUdiseVerified(data.is_valid);
+
+        } catch (err) {
+            console.error(err);
+            setUdiseVerified(false);
+            alert("Verification failed");
+        }
+
+        setUdiseVerifying(false);
+    };
+
+
+
     const handleEditTeacher = (teacher: TeacherDetail) => {
         setCurrentTeacher(teacher);
         setEditingTeacherId(teacher.id);
@@ -903,7 +1708,7 @@ export default function ProfilePage() {
             aadhaarNumber: "", aadhaarName: "", disability: "1-Not applicable",
             natureOfAppointment: "1-Regular", dateJoiningService: "", dateJoiningSchool: "",
             currentPost: "1-Accountant"
-        } as any);
+        } as NonTeachingStaff);
     };
 
     const handleDeleteNonTeachingStaff = async (id: string) => {
@@ -1050,7 +1855,7 @@ export default function ProfilePage() {
         aadhaarNumber: "", aadhaarName: "", disability: "1-Not applicable",
         natureOfAppointment: "1-Regular", dateJoiningService: "", dateJoiningSchool: "",
         currentPost: "1-Accountant"
-    } as any);
+    } as NonTeachingStaff);
     const [isAddingNonTeaching, setIsAddingNonTeaching] = useState(false);
     const [editingNonTeachingId, setEditingNonTeachingId] = useState<string | null>(null);
 
@@ -1659,6 +2464,7 @@ export default function ProfilePage() {
         sec_157: sec157,
     });
 
+
     const saveReceiptsExpenditure = () => apiPut(`/profile/receipts-expenditure`, {
         exp_maintenance: expMaintenance,
         exp_teachers: expTeachers,
@@ -1968,19 +2774,33 @@ export default function ProfilePage() {
             separate_room: l.separateRoom,
         })),
     });
+    const saveTransport = async () => {
+        await apiPut("/profile/transport", {
+            trans_fitness_cert: transFitnessCert,
+            trans_vehicle_age: transVehicleAge,
+            trans_permit: transPermit,
+            trans_speed_governor: transSpeedGovernor,
+            trans_school_name_written: transSchoolNameWritten,
+            trans_driver_experience: transDriverExperience,
+            trans_driver_no_traffic_offences: transDriverNoTrafficOffences,
+            trans_auto_safety: transAutoSafety,
+        });
+    };
 
     // ─── Step → save function map ─────────────────────────────────────────────
     const stepSaveFns: (() => Promise<void>)[] = [
-        saveBasicDetails,          // 0 Basic Details
-        saveReceiptsExpenditure,   // 1 Receipts and Expenditure
-        saveLegalDetails,          // 2 Legal Details
-        saveLocation,              // 3 Location
-        saveInfrastructure,        // 4 Infrastructure
-        saveStaff,                 // 5 Staff
-        saveSafety,                // 6 Safety
-        saveStudentCapacity,       // 7 Student Capacity
-        saveVocationalEducation,   // 8 Vocational Education
+        saveBasicDetails,          // 0
+        saveReceiptsExpenditure,   // 1
+        saveLegalDetails,          // 2
+        saveLocation,              // 3
+        saveInfrastructure,        // 4
+        saveStaff,                 // 5
+        saveSafety,                // 6
+        saveStudentCapacity,       // 7
+        saveVocationalEducation,   // 8
+        saveTransport              // ✅ 9 (ADD THIS LINE)
     ];
+
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -1995,38 +2815,93 @@ export default function ProfilePage() {
         }
     };
 
-    // Save current step then advance
-    const handleNext = async () => {
-        if (!validateStep(currentStep)) return;
-        setIsSaving(true);
-        setSaveError(null);
-        try {
-            await stepSaveFns[currentStep]();
-        } catch (e: unknown) {
-            setSaveError(e instanceof Error ? e.message : "Save failed");
-            setIsSaving(false);
-            return; // Don't advance if save failed
+    const scrollToFirstError = (errors: any) => {
+        const firstKey = Object.keys(errors)[0];
+        if (!firstKey) return;
+
+        const el = document.querySelector(`[name="${firstKey}"]`);
+        if (el) {
+            (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
         }
-        setIsSaving(false);
-        setCurrentStep((s) => Math.min(s + 1, steps.length - 1));
-        window.scrollTo(0, 0);
     };
 
+    // Save current step then advance
+    const handleNext = async () => {
+        const errs = runStepValidation(currentStep);
+
+        if (Object.keys(errs).length > 0) {
+            setStepErrors(prev => ({ ...prev, [currentStep]: errs }));
+            return;  // ← return immediately, don't try to save
+        }
+
+        // Clear errors for this step since validation passed
+        setStepErrors(prev => ({ ...prev, [currentStep]: {} }));
+
+        try {
+            if (stepSaveFns[currentStep]) {
+                await stepSaveFns[currentStep]();
+            }
+        } catch (err) {
+            console.error("Save failed:", err);
+            return;
+        }
+
+        setCurrentStep(prev => {
+            const next = prev + 1;
+            return next < STEP_API.length ? next : prev;
+        });
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
     // Final submit — save all steps then POST /profile/submit
     const handleSubmit = async () => {
-        setIsSaving(true);
-        setSaveError(null);
+        let allErrors: any = {};
+        let hasError = false;
+        let firstErrorStep = -1;
+
+        for (let i = 0; i < steps.length; i++) {
+            const errs = runStepValidation(i);
+            if (Object.keys(errs).length > 0) {
+                hasError = true;
+                if (firstErrorStep === -1) firstErrorStep = i;
+            }
+            allErrors[i] = errs;
+        }
+
+        setStepErrors(allErrors);
+
+        if (hasError) {
+            setCurrentStep(firstErrorStep);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            return;
+        }
+
         try {
-            // Save current (last) step first
-            await stepSaveFns[currentStep]();
-            // Then call full submit endpoint
-            await apiPost(`/profile/submit`, {});
-            showSaveResult();
-            alert("Profile submitted successfully! ✅");
-        } catch (e: unknown) {
-            setSaveError(e instanceof Error ? e.message : "Submit failed");
-        } finally {
-            setIsSaving(false);
+            const res = await fetch(`${API_BASE_URL}/profile/submit`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({}),  // ✅ Add this
+            });
+
+            // Read the body exactly once
+            const data = await res.json();
+
+            if (!res.ok) {
+                // data is already parsed — use it directly
+                throw new Error(data?.detail || data?.message || "Submission failed");
+            }
+
+            alert("Form submitted successfully ✅");
+        } catch (err: unknown) {
+            console.error("❌ Submit Error:", err);
+            if (err instanceof Error) {
+                alert(err.message);
+            } else {
+                alert("Something went wrong during submission");
+            }
         }
     };
 
@@ -2125,6 +3000,73 @@ export default function ProfilePage() {
         current_year_attendance: s.currentYearAttendance,
     });
 
+
+
+    // ─── Token-aware API helpers (defined inside component, use token state) ──
+    const authHeader = (): HeadersInit =>
+        token ? { Authorization: `Bearer ${token}` } : {};
+
+
+
+    const apiPost = async (path: string, body: unknown): Promise<void> => {
+        const res = await fetch(`${API_BASE_URL}${path}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeader() },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            throw new Error(err?.detail ?? `Error ${res.status}`);
+        }
+    };
+
+
+    const uploadDocument = async (documentType: string, file: File): Promise<void> => {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("document_type", documentType);
+        const res = await fetch(
+            `${API_BASE_URL}/profile/upload-document?document_type=${documentType}`,
+            { method: "POST", headers: { ...authHeader() }, body: form }
+        );
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            throw new Error(err?.detail ?? `Error ${res.status}`);
+        }
+    };
+
+    // ─── UDISE verification ── calls backend with token from state ────────────
+    // The backend compares the entered UDISE with the logged-in user's own
+    // stored udise_number. No database-wide search is performed on the frontend.
+    const handleVerifyUdise = async () => {
+        if (udiseNumber.length !== 11) {
+            alert("Please enter a valid 11-digit UDISE Number to verify.");
+            return;
+        }
+        setUdiseVerifying(true);
+        setUdiseVerified(null);
+        try {
+            const res = await fetch(
+                `${API_BASE_URL}/profile/verify-udise?udise_number=${udiseNumber}`,
+                { headers: { ...authHeader() } }
+            );
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err?.detail ?? `Error ${res.status}`);
+            }
+            const data = await res.json();
+            setUdiseVerified(data.is_valid === true);
+            if (!data.is_valid) {
+                alert("UDISE Number does not match your registered school. Please check and try again.");
+            }
+        } catch (e: unknown) {
+            alert(e instanceof Error ? e.message : "Verification failed. Please try again.");
+            setUdiseVerified(false);
+        } finally {
+            setUdiseVerifying(false);
+        }
+    };
+
     useEffect(() => {
         if (applicationType === "New Recognition") {
             setAcademicInspections("0");
@@ -2163,7 +3105,7 @@ export default function ProfilePage() {
         setIsSectionConfigSaved(false);
     }, [lowestClass, highestClass, hasPrePrimary]);
 
-    // Persist profile data to localStorage for registration page auto-population
+    // Persist profile data to localStorage (safe: inside useEffect = client only)
     useEffect(() => {
         const totalClassrooms = [classroomsPrePrimary, classroomsPrimary, classroomsUpperPrimary, classroomsSecondary, classroomsHigherSecondary]
             .reduce((sum, v) => sum + (parseInt(v) || 0), 0);
@@ -2255,45 +3197,183 @@ export default function ProfilePage() {
         setSectionConfigs(updated);
     };
 
-    const validateStep = (step: number) => {
-        const errors: string[] = [];
-
-        if (step === 0) {
-            if (!schoolName) errors.push("School Name");
-            if (!udiseNumber) errors.push("UDISE Number");
-            if (!estYear) errors.push("Year of Establishment");
-            if (!boardAffiliation) errors.push("Board Affiliation");
-            if (!managementGroup) errors.push("Management Group");
-            if (!schoolCategory) errors.push("School Category");
-            if (!lowestClass) errors.push("Lowest Class");
-            if (!highestClass) errors.push("Highest Class");
-            if (!mobile) errors.push("Mobile Number (Contact)");
-            if (!email) errors.push("Email (Contact)");
-        }
-
-        if (step === 9) {
-            if (!transFitnessCert) errors.push("1. Fitness Certificate");
-            if (!transVehicleAge) errors.push("2. Vehicle Age");
-            if (!transPermit) errors.push("3. Vehicle Permit");
-            if (!transSpeedGovernor) errors.push("4. Speed Governor");
-            if (!transVehicleExterior) errors.push("5. Vehicle Exterior Norms");
-            if (!transSchoolBusProminent) errors.push("6. 'SCHOOL BUS' Prominent");
-            if (!transHiredBusDuty) errors.push("7. 'ON SCHOOL DUTY'");
-            if (!transSchoolNameWritten) errors.push("8. School Name on Bus");
-            if (!transDriverExperience) errors.push("9. Driver Experience");
-            if (!transDriverNoTrafficOffences) errors.push("10. Driver Traffic Offence Record");
-            if (!transAutoSafety) errors.push("28. Auto Safety");
-            if (!transAutoParentInstruction) errors.push("29. Auto Parent Instruction");
-            if (!transAutoRegistered) errors.push("30. Auto Registration");
-        }
-
-        if (errors.length > 0) {
-            setValidationErrors(errors);
-            setShowValidationPopup(true);
-            return false;
-        }
-        return true;
+    type ValidationErrors = {
+        [step: number]: {
+            [field: string]: string;
+        };
     };
+
+
+
+    const validateStep0 = () => {
+        const errors: any = {};
+
+        if (!schoolName) errors.schoolName = "School name required";
+        if (!udiseNumber) errors.udiseNumber = "UDISE required";
+        if (!mobile) errors.mobile = "Mobile required";
+
+        return errors;
+    };
+    const runStepValidation = (step: number) => {
+        let errors: any = {};
+
+        // 🟢 STEP 0: BASIC DETAILS
+        if (step === 0) {
+            if (!schoolName?.trim()) errors.schoolName = "School name required";
+
+            if (!udiseNumber?.trim()) {
+                errors.udiseNumber = "UDISE required";
+            } else if (udiseNumber.length !== 11) {
+                errors.udiseNumber = "UDISE must be 11 digits";
+            }
+
+            if (!udiseVerified) {
+                errors.udiseVerified = "Verify UDISE first";
+            }
+
+            if (!estYear) errors.estYear = "Establishment year required";
+
+            if (!mobile) {
+                errors.mobile = "Mobile required";
+            } else if (!/^[0-9]{10}$/.test(mobile)) {
+                errors.mobile = "Invalid mobile number";
+            }
+            if (!isMinority) errors.isMinority = "Select minority";
+
+            if (isMinority === "1-Yes" && !minorityCommunity) {
+                errors.minorityCommunity = "Select minority community";
+            }
+            if (!curriculumPrimary) errors.curriculumPrimary = "Required";
+            if (!curriculumUpperPrimary) errors.curriculumUpperPrimary = "Required";
+
+
+            if (!email) errors.email = "Email required";
+
+            if (!schoolType) errors.schoolType = "Select school type";
+            if (!lowestClass) errors.lowestClass = "Select lowest class";
+            if (!highestClass) errors.highestClass = "Select highest class";
+
+            if (!schoolCategory) errors.schoolCategory = "Select category";
+        }
+
+        // 🟡 STEP 1: RECEIPTS
+        if (step === 1) {
+            const hasAssistance = assistance.some(
+                (a) => a.amount && a.amount !== "" && a.amount !== "0"
+            );
+
+            if (!hasAssistance) {
+                errors.expenditure = "Enter at least one financial assistance";
+            }
+        }
+
+        // 🟠 STEP 2: LEGAL
+        if (step === 2) {
+
+        }
+
+        // 🔵 STEP 3: LOCATION
+        if (step === 3) {
+            if (!address) errors.address = "Address required";
+            if (!pinCode) errors.pinCode = "Pin code required";
+            if (!district) errors.district = "District required";
+            if (!taluka) errors.taluka = "Taluka required";
+
+            if (locationType === "Rural" || locationType === "1-Rural") {
+                if (!villageName) errors.villageName = "Village required";
+                if (!gramPanchayat) errors.gramPanchayat = "Gram Panchayat required";
+            }
+
+            if (locationType === "Urban" || locationType === "2-Urban") {
+                if (!urbanLocalBody) errors.urbanLocalBody = "Urban body required";
+            }
+        }
+
+        // 🟣 STEP 4: INFRASTRUCTURE
+        if (step === 4) {
+            if (!buildingStatus) errors.buildingStatus = "Required";
+            if (!totalInstructionalRooms || Number(totalInstructionalRooms) <= 0) {
+                errors.totalInstructionalRooms = "Enter valid number";
+            }
+
+            if (!hasElectricity) errors.hasElectricity = "Required";
+            if (!boundaryWall) errors.boundaryWall = "Required";
+
+            if (!hasLibrary) errors.hasLibrary = "Required";
+            if (hasLibrary === "1-Yes" && !libraryBooks) {
+                errors.libraryBooks = "Enter number of books";
+            }
+
+            if (!hasPlayground) errors.hasPlayground = "Required";
+
+            if (hasPlayground === "1-Yes" && !playgroundArea) {
+                errors.playgroundArea = "Enter playground area";
+            }
+        }
+
+        // 🟤 STEP 5: STAFF
+        // 🟤 STEP 5: STAFF
+        if (step === 5) {
+            if (!staffCounts?.regular || staffCounts.regular === "")
+                errors.regular = "Enter regular staff count";
+
+            if (!staffCounts?.nonRegular || staffCounts.nonRegular === "")
+                errors.nonRegular = "Enter non-regular staff count";
+
+            if (!teachers || teachers.length === 0)
+                errors.teachers = "Add at least 1 teacher";
+        }
+
+        // ⚫ STEP 6: SAFETY
+        if (step === 6) {
+            if (!hasDisasterPlan) errors.hasDisasterPlan = "Required";
+            if (!hasFireExtinguishers) errors.hasFireExtinguishers = "Required";
+            if (!hasCCTV) errors.hasCCTV = "Required";
+            if (!hasFirstAid) errors.hasFirstAid = "Required";
+            if (!hasSafetyTraining) errors.hasSafetyTraining = "Required";
+        }
+
+        // 🟢 STEP 7: STUDENTS
+        if (step === 7) {
+            if (!sectionConfigs || sectionConfigs.length === 0) {
+                errors.sections = "Add section configuration";
+            }
+
+            if (!students || students.length === 0) {
+                errors.students = "Add at least 1 student";
+            }
+        }
+
+        // 🔶 STEP 8: VOCATIONAL
+        if (step === 8) {
+            if (isVocational === "1-Yes") {
+                if (!vocationalGuestLecturers)
+                    errors.vocationalGuestLecturers = "Required";
+
+                if (!vocationalIndustryVisits)
+                    errors.vocationalIndustryVisits = "Required";
+            }
+        }
+
+        // 🔷 STEP 9: TRANSPORT
+        if (step === 9) {
+            if (!transFitnessCert)
+                errors.transFitnessCert = "Fitness certificate required";
+
+            if (!transPermit)
+                errors.transPermit = "Permit required";
+
+            if (!transDriverExperience)
+                errors.transDriverExperience = "Driver experience required";
+
+            if (!transDriverNoTrafficOffences)
+                errors.transDriverNoTrafficOffences = "Required";
+        }
+
+        return errors;
+    };
+
+
 
     // next is now handleNext (defined above with API save)
     const next = handleNext;
@@ -2304,6 +3384,14 @@ export default function ProfilePage() {
 
     // Check if school has Grade 1 (for Vidya Pravesh conditional visibility)
     const hasGrade1 = true; // This should be derived from actual data in a real implementation
+
+    if (!isAuthReady) {
+        return <div>Loading...</div>;
+    }
+
+    if (!token) {
+        return <div>Please login</div>;
+    }
 
     return (
         <DashboardLayout>
@@ -2372,31 +3460,66 @@ export default function ProfilePage() {
                         <div>
                             <h3 className="text-lg font-semibold text-neutral-800 mb-4 pb-2 border-b border-neutral-100">1.1 School Identity</h3>
                             <div className="grid md:grid-cols-2 gap-5">
-                                <InputField label="1.1 School Name (In capital letters)" value={schoolName} onChange={(e) => setSchoolName(e.target.value.toUpperCase())} required={true} />
-                                <div className="flex items-end gap-3">
+                                <InputField
+                                    name="schoolName"
+                                    label="1.1 School Name (In capital letters)"
+                                    value={schoolName}
+                                    onChange={(e) => setSchoolName(e.target.value.toUpperCase())}
+                                    required={true}
+                                    error={stepErrors[0]?.schoolName}
+                                />                                <div className="flex items-end gap-3">
                                     <div className="flex-1">
-                                        <InputField label="UDISE Number" value={udiseNumber} onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 11);
-                                            setUdiseNumber(val);
-                                        }} placeholder="11-digit UDISE Number" required={true} />
+                                        <InputField
+                                            name="udiseNumber"
+                                            label="UDISE Number"
+                                            value={udiseNumber}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                                                setUdiseNumber(val);
+                                            }}
+                                            placeholder="11-digit UDISE Number"
+                                            required={true}
+                                            error={stepErrors[0]?.udiseNumber || stepErrors[0]?.udiseVerified}
+                                        />
                                     </div>
-                                    <button 
-                                        type="button" 
-                                        className="h-[42px] px-6 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors shadow-sm"
-                                        onClick={() => {
-                                            if (udiseNumber.length === 11) {
-                                                alert("UDISE Number Verified Successfully!");
-                                            } else {
-                                                alert("Please enter a valid 11-digit UDISE Number to verify.");
-                                            }
-                                        }}
+                                    <button
+                                        type="button"
+                                        disabled={udiseVerifying || udiseNumber.length !== 11}
+                                        className={`h-[42px] px-6 rounded-xl text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${udiseVerified === true
+                                            ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                            : udiseVerified === false
+                                                ? "bg-red-500 text-white hover:bg-red-600"
+                                                : "bg-primary-600 text-white hover:bg-primary-700"
+                                            }`}
+                                        onClick={handleVerifyUdise}
                                     >
-                                        Verify
+                                        {udiseVerifying
+                                            ? "Verifying…"
+                                            : udiseVerified === true
+                                                ? "✓ Verified"
+                                                : udiseVerified === false
+                                                    ? "✗ Mismatch"
+                                                    : "Verify"}
                                     </button>
                                 </div>
-                                <InputField label="Year of Establishment" value={estYear} onChange={(e) => setEstYear(e.target.value)} type="number" placeholder="e.g. 1995" required />
-                                <SelectField label="Board Affiliation" value={boardAffiliation} onChange={(e) => setBoardAffiliation(e.target.value)} options={["CBSE", "ICSE", "State Board", "IB", "Other"]} required />
-                            </div>
+                                <InputField
+                                    name="estYear"
+                                    label="Year of Establishment"
+                                    value={estYear}
+                                    onChange={(e) => setEstYear(e.target.value)}
+                                    type="number"
+                                    placeholder="e.g. 1995"
+                                    required
+                                    error={stepErrors[0]?.estYear}
+                                />
+                                <SelectField
+                                    name="boardAffiliation"
+                                    label="Board Affiliation"
+                                    value={boardAffiliation}
+                                    onChange={(e) => setBoardAffiliation(e.target.value)}
+                                    options={["CBSE", "ICSE", "State Board", "IB", "Other"]}
+                                    required
+                                />                            </div>
                         </div>
 
                         <div>
@@ -2404,9 +3527,25 @@ export default function ProfilePage() {
                             <div className="grid md:grid-cols-2 gap-5">
                                 <InputField label="(a) STD Code" value={stdCode} onChange={(e) => setStdCode(e.target.value)} placeholder="STD Code" />
                                 <InputField label="(b) Landline Number" value={landline} onChange={(e) => setLandline(e.target.value)} placeholder="Landline Number" />
-                                <InputField label="(c) Mobile Number" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="Mobile Number" required />
-                                <InputField label="(d) Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email" required />
-                                <div className="md:col-span-2">
+                                <InputField
+                                    name="mobile"
+                                    label="(c) Mobile Number"
+                                    value={mobile}
+                                    onChange={(e) => setMobile(e.target.value)}
+                                    placeholder="Mobile Number"
+                                    required
+                                    error={stepErrors[0]?.mobile}
+                                />
+                                <InputField
+                                    name="email"
+                                    label="(d) Email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    type="email"
+                                    placeholder="Email"
+                                    required
+                                    error={stepErrors[0]?.email}
+                                />                                <div className="md:col-span-2">
                                     <InputField label="(e) Website of the School" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://..." />
                                 </div>
                             </div>
@@ -2436,11 +3575,12 @@ export default function ProfilePage() {
                             <h3 className="text-lg font-semibold text-neutral-800 mb-4 pb-2 border-b border-neutral-100">1.4 Management Details</h3>
                             <div className="grid md:grid-cols-2 gap-5">
                                 <SelectField
+                                    name="managementGroup"
                                     label="(a) Management Group of the School"
                                     value={managementGroup}
                                     onChange={(e) => {
                                         setManagementGroup(e.target.value);
-                                        setManagementCode(""); // Reset code when group changes
+                                        setManagementCode("");
                                     }}
                                     options={[
                                         "A- State Government",
@@ -2450,6 +3590,7 @@ export default function ProfilePage() {
                                         "E- Others"
                                     ]}
                                     required
+                                    error={stepErrors[0]?.managementGroup}
                                 />
 
                                 <SelectField
@@ -2533,6 +3674,7 @@ export default function ProfilePage() {
                             <div className="grid md:grid-cols-2 gap-5">
                                 <SelectField label="1.7 Is this a PM-SHRI School?" value={isPmShri} onChange={(e) => setIsPmShri(e.target.value)} options={["1-Yes", "2-No"]} />
                                 <SelectField
+                                    name="schoolCategory"
                                     label="1.10 School Category"
                                     value={schoolCategory}
                                     onChange={(e) => setSchoolCategory(e.target.value)}
@@ -2544,15 +3686,22 @@ export default function ProfilePage() {
                                         "5- Higher Secondary with grades 6 to 12 (UPR-SEC-HSEC)",
                                         "6- Secondary with grades 1 to 10 (PRY-UPR-SEC)",
                                         "7- Secondary with grades 6 to 10 (UPR-SEC)",
-                                        "8- Secondary only with grades 9 \u0026 10 (SEC)",
+                                        "8- Secondary only with grades 9 & 10 (SEC)",
                                         "10- Higher Secondary with grades 9 to 12 (SEC-HSEC)",
-                                        "11- Hr. Sec. /Jr. College only with grades 11 \u0026 12 (HSEC)",
+                                        "11- Hr. Sec. /Jr. College only with grades 11 & 12 (HSEC)",
                                         "12- Pre-Primary Only (PRE)"
                                     ]}
                                     required
+                                    error={stepErrors[0]?.schoolCategory}
                                 />
-                                <SelectField label="1.9 Type of the School" value={schoolType} onChange={(e) => setSchoolType(e.target.value)} options={["1-Boys", "2-Girls", "3-Co-Educational"]} />
-                            </div>
+                                <SelectField
+                                    name="schoolType"
+                                    label="1.9 Type of the School"
+                                    value={schoolType}
+                                    onChange={(e) => setSchoolType(e.target.value)}
+                                    options={["1-Boys", "2-Girls", "3-Co-Educational"]}
+                                    error={stepErrors[0]?.schoolType}
+                                />                            </div>
                         </div>
 
                         <div>
@@ -2567,10 +3716,23 @@ export default function ProfilePage() {
                                         }):
                                     </label>
                                     <div className="flex items-center gap-4 max-w-sm">
-                                        <SelectField label="1.17 Lowest Class" value={lowestClass} onChange={(e) => setLowestClass(e.target.value)} options={["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]} required={true} />
-                                        <span className="text-neutral-400 font-bold">TO</span>
-                                        <InputField label="" value={highestClass} onChange={(e) => setHighestClass(e.target.value)} placeholder="Class e.g. 10" />
-                                    </div>
+                                        <SelectField
+                                            name="lowestClass"
+                                            label="1.17 Lowest Class"
+                                            value={lowestClass}
+                                            onChange={(e) => setLowestClass(e.target.value)}
+                                            options={["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]}
+                                            required={true}
+                                            error={stepErrors[0]?.lowestClass}
+                                        />                                        <span className="text-neutral-400 font-bold">TO</span>
+                                        <InputField
+                                            name="highestClass"
+                                            label=""
+                                            value={highestClass}
+                                            onChange={(e) => setHighestClass(e.target.value)}
+                                            placeholder="Class e.g. 10"
+                                            error={stepErrors[0]?.highestClass}
+                                        />                                    </div>
                                 </div>
 
                                 {/* (b) Pre-Primary Details */}
@@ -2909,7 +4071,8 @@ export default function ProfilePage() {
                                     label="(1-NCERT / 2-State / 3-Others)"
                                     value={curriculumPrimary}
                                     onChange={(e) => setCurriculumPrimary(e.target.value)}
-                                    options={["1-NCERT", "2-State", "3-Others"]}
+                                    options={["State Board", "CBSE", "ICSE", "Other"]}
+                                    error={stepErrors[2]?.curriculumPrimary}
                                 />
 
                                 <p className="text-sm font-semibold text-neutral-700 bg-yellow-50 px-2 py-1 rounded mt-4">(b) Curriculum followed by School in UPPER PRIMARY Section?</p>
@@ -2917,7 +4080,8 @@ export default function ProfilePage() {
                                     label="(1-NCERT / 2-State / 3-Others)"
                                     value={curriculumUpperPrimary}
                                     onChange={(e) => setCurriculumUpperPrimary(e.target.value)}
-                                    options={["1-NCERT", "2-State", "3-Others"]}
+                                    options={["State Board", "CBSE", "ICSE", "Other"]}
+                                    error={stepErrors[2]?.curriculumUpperPrimary}
                                 />
                             </div>
 
@@ -2928,6 +4092,7 @@ export default function ProfilePage() {
                                         value={isMinority}
                                         onChange={(e) => setIsMinority(e.target.value)}
                                         options={["1-Yes", "2-No"]}
+                                        error={stepErrors[2]?.isMinority}
                                     />
                                     <p className="text-[10px] text-neutral-400 italic mb-2">
                                         (Applicable only for Govt. Aided / Pvt. Unaided / Others Management Group Schools)
@@ -2940,15 +4105,8 @@ export default function ProfilePage() {
                                             label="If 1-Yes, Type of Minority Community Managing the school:"
                                             value={minorityCommunity}
                                             onChange={(e) => setMinorityCommunity(e.target.value)}
-                                            options={[
-                                                "1-Muslim",
-                                                "2-Sikh",
-                                                "3-Jain",
-                                                "4-Christian",
-                                                "5-Parsi",
-                                                "6-Buddhist",
-                                                "8-Linguistic Minority"
-                                            ]}
+                                            options={["Muslim", "Christian", "Sikh", "Buddhist", "Jain", "Parsi", "Other"]}
+                                            error={stepErrors[2]?.minorityCommunity}
                                         />
                                     </div>
                                 )}
@@ -2966,6 +4124,7 @@ export default function ProfilePage() {
                                         value={isRTE}
                                         onChange={(e) => setIsRTE(e.target.value)}
                                         options={["1-Yes", "2-No"]}
+                                        error={stepErrors[2]?.isRTE}
                                     />
                                 </div>
 
@@ -2978,120 +4137,154 @@ export default function ProfilePage() {
                                             value={isVocational}
                                             onChange={(e) => setIsVocational(e.target.value)}
                                             options={["1-Yes", "2-No"]}
+                                            error={stepErrors[2]?.isVocational}
                                         />
                                     </div>
 
                                     {isVocational === "1-Yes" && (
-                                        <div className="bg-primary-50 p-4 rounded-xl border border-primary-100 animate-in fade-in slide-in-from-top-2 duration-300 space-y-6">
-                                            <p className="text-xs font-bold text-primary-800 italic">If Answer of 1.23 is 1-YES, then only answer all remaining sections</p>
+                                        <div>
+                                            {/* 🔥 ERROR MESSAGE */}
+                                            {stepErrors[2]?.vocational && (
+                                                <div className="text-red-600 text-sm mb-3">
+                                                    {stepErrors[2].vocational}
+                                                </div>
+                                            )}
 
-                                            <div className="space-y-4">
-                                                <SelectField
-                                                    label="(a) Vocational/Skill Courses covered under:"
-                                                    value={fundingSource}
-                                                    onChange={(e) => setFundingSource(e.target.value)}
-                                                    options={["1-Centrally Sponsored Scheme", "2-State sponsored scheme", "3-NONE"]}
-                                                />
-                                                <p className="text-[10px] text-neutral-400 italic -mt-2">
-                                                    (Note: For New Recognition, usually select 3-NONE)
+                                            <div className="bg-primary-50 p-4 rounded-xl border border-primary-100 animate-in fade-in slide-in-from-top-2 duration-300 space-y-6">
+                                                <p className="text-xs font-bold text-primary-800 italic">
+                                                    If Answer of 1.23 is 1-YES, then only answer all remaining sections
                                                 </p>
 
-                                                {(fundingSource === "1-Centrally Sponsored Scheme" || fundingSource === "2-State sponsored scheme") && (
-                                                    <InputField
-                                                        label="Sanction Order Number (Mandatory for Govt. Support)"
-                                                        value={sanctionOrderNumber}
-                                                        onChange={(e) => setSanctionOrderNumber(e.target.value)}
-                                                        placeholder="Enter sanction order number"
+                                                <div className="space-y-4">
+                                                    <SelectField
+                                                        name="fundingSource"
+                                                        label="(a) Vocational/Skill Courses covered under:"
+                                                        value={fundingSource}
+                                                        onChange={(e) => setFundingSource(e.target.value)}
+                                                        options={[
+                                                            "1-Centrally Sponsored Scheme",
+                                                            "2-State sponsored scheme",
+                                                            "3-NONE"
+                                                        ]}
                                                     />
-                                                )}
-                                            </div>
-
-                                            <div className="space-y-4">
-                                                <p className="text-sm font-semibold text-neutral-700">(b) Sector(s) / Job Roles(s) available in the school:</p>
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full border-collapse border border-neutral-200 text-[10px]">
-                                                        <thead>
-                                                            <tr className="bg-neutral-100 text-neutral-700">
-                                                                <th className="border border-neutral-200 p-2 text-center w-8">Sl. No.</th>
-                                                                <th className="border border-neutral-200 p-2 text-left w-32">Grade (1=IX-X / 2=XI-XII)</th>
-                                                                <th className="border border-neutral-200 p-2 text-left w-48">Sector(s) with Code</th>
-                                                                <th className="border border-neutral-200 p-2 text-left">Job Roles with Code</th>
-                                                                <th className="border border-neutral-200 p-2 text-center w-24">Year of Starting</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {vocationalRows.map((row, idx) => (
-                                                                <tr key={idx} className="bg-white">
-                                                                    <td className="border border-neutral-200 p-1 text-center font-medium text-neutral-500">
-                                                                        {idx % 2 === 0 ? `Sector${Math.floor(idx / 2) + 1}` : ""}
-                                                                    </td>
-                                                                    <td className="border border-neutral-200 p-1">
-                                                                        <select
-                                                                            value={row.grade}
-                                                                            onChange={(e) => {
-                                                                                const newRows = [...vocationalRows];
-                                                                                newRows[idx].grade = e.target.value;
-                                                                                setVocationalRows(newRows);
-                                                                            }}
-                                                                            className="w-full bg-transparent focus:outline-none"
-                                                                        >
-                                                                            <option value="">Select</option>
-                                                                            <option value="1">1 (IX-X)</option>
-                                                                            <option value="2">2 (XI-XII)</option>
-                                                                        </select>
-                                                                    </td>
-                                                                    <td className="border border-neutral-200 p-1">
-                                                                        <select
-                                                                            value={row.sector}
-                                                                            onChange={(e) => {
-                                                                                const newRows = [...vocationalRows];
-                                                                                newRows[idx].sector = e.target.value;
-                                                                                setVocationalRows(newRows);
-                                                                            }}
-                                                                            className="w-full bg-transparent focus:outline-none"
-                                                                        >
-                                                                            <option value="">Select Sector</option>
-                                                                            {VOCATIONAL_SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-                                                                        </select>
-                                                                    </td>
-                                                                    <td className="border border-neutral-200 p-1">
-                                                                        <input
-                                                                            type="text"
-                                                                            value={row.jobRole}
-                                                                            onChange={(e) => {
-                                                                                const newRows = [...vocationalRows];
-                                                                                newRows[idx].jobRole = e.target.value;
-                                                                                setVocationalRows(newRows);
-                                                                            }}
-                                                                            placeholder="e.g. Data Entry Operator"
-                                                                            className="w-full bg-transparent focus:outline-none px-1"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="border border-neutral-200 p-1 text-center">
-                                                                        <input
-                                                                            type="text"
-                                                                            value={row.yearStarting}
-                                                                            onChange={(e) => {
-                                                                                const newRows = [...vocationalRows];
-                                                                                newRows[idx].yearStarting = e.target.value;
-                                                                                setVocationalRows(newRows);
-                                                                            }}
-                                                                            placeholder="YYYY"
-                                                                            className="w-full bg-transparent focus:outline-none text-center"
-                                                                        />
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                                <div className="p-3 bg-primary-100/50 rounded-xl border border-primary-200">
-                                                    <p className="text-[10px] text-primary-800 leading-normal">
-                                                        <span className="font-bold">Usage Logic:</span><br />
-                                                        • <span className="font-bold">New Recognition:</span> Declare intended sectors to verify lab capacity.<br />
-                                                        • <span className="font-bold">Recognition Renewal:</span> Audit mode; list all active courses.<br />
-                                                        • <span className="font-bold">Upgradatiton:</span> expansion mode; apply for new courses in higher grades.
+                                                    <p className="text-[10px] text-neutral-400 italic -mt-2">
+                                                        (Note: For New Recognition, usually select 3-NONE)
                                                     </p>
+
+                                                    {(fundingSource === "1-Centrally Sponsored Scheme" ||
+                                                        fundingSource === "2-State sponsored scheme") && (
+                                                            <InputField
+                                                                name="sanctionOrderNumber"
+                                                                label="Sanction Order Number (Mandatory for Govt. Support)"
+                                                                value={sanctionOrderNumber}
+                                                                onChange={(e) => setSanctionOrderNumber(e.target.value)}
+                                                                placeholder="Enter sanction order number"
+                                                            />
+                                                        )}
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <p className="text-sm font-semibold text-neutral-700">
+                                                        (b) Sector(s) / Job Roles(s) available in the school:
+                                                    </p>
+
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full border-collapse border border-neutral-200 text-[10px]">
+                                                            <thead>
+                                                                <tr className="bg-neutral-100 text-neutral-700">
+                                                                    <th className="border border-neutral-200 p-2 text-center w-8">Sl. No.</th>
+                                                                    <th className="border border-neutral-200 p-2 text-left w-32">Grade (1=IX-X / 2=XI-XII)</th>
+                                                                    <th className="border border-neutral-200 p-2 text-left w-48">Sector(s) with Code</th>
+                                                                    <th className="border border-neutral-200 p-2 text-left">Job Roles with Code</th>
+                                                                    <th className="border border-neutral-200 p-2 text-center w-24">Year of Starting</th>
+                                                                </tr>
+                                                            </thead>
+
+                                                            <tbody>
+                                                                {vocationalRows.map((row, idx) => (
+                                                                    <tr key={idx} className="bg-white">
+                                                                        <td className="border border-neutral-200 p-1 text-center font-medium text-neutral-500">
+                                                                            {idx % 2 === 0 ? `Sector${Math.floor(idx / 2) + 1}` : ""}
+                                                                        </td>
+
+                                                                        <td className="border border-neutral-200 p-1">
+                                                                            <select
+                                                                                name={`vocationalGrade-${idx}`}
+                                                                                value={row.grade}
+                                                                                onChange={(e) => {
+                                                                                    const newRows = [...vocationalRows];
+                                                                                    newRows[idx].grade = e.target.value;
+                                                                                    setVocationalRows(newRows);
+                                                                                }}
+                                                                                className="w-full bg-transparent focus:outline-none"
+                                                                            >
+                                                                                <option value="">Select</option>
+                                                                                <option value="1">1 (IX-X)</option>
+                                                                                <option value="2">2 (XI-XII)</option>
+                                                                            </select>
+                                                                        </td>
+
+                                                                        <td className="border border-neutral-200 p-1">
+                                                                            <select
+                                                                                name={`vocationalSector-${idx}`}
+                                                                                value={row.sector}
+                                                                                onChange={(e) => {
+                                                                                    const newRows = [...vocationalRows];
+                                                                                    newRows[idx].sector = e.target.value;
+                                                                                    setVocationalRows(newRows);
+                                                                                }}
+                                                                                className="w-full bg-transparent focus:outline-none"
+                                                                            >
+                                                                                <option value="">Select Sector</option>
+                                                                                {VOCATIONAL_SECTORS.map((s) => (
+                                                                                    <option key={s} value={s}>{s}</option>
+                                                                                ))}
+                                                                            </select>
+                                                                        </td>
+
+                                                                        <td className="border border-neutral-200 p-1">
+                                                                            <input
+                                                                                name={`vocationalJobRole-${idx}`}
+                                                                                type="text"
+                                                                                value={row.jobRole}
+                                                                                onChange={(e) => {
+                                                                                    const newRows = [...vocationalRows];
+                                                                                    newRows[idx].jobRole = e.target.value;
+                                                                                    setVocationalRows(newRows);
+                                                                                }}
+                                                                                placeholder="e.g. Data Entry Operator"
+                                                                                className="w-full bg-transparent focus:outline-none px-1"
+                                                                            />
+                                                                        </td>
+
+                                                                        <td className="border border-neutral-200 p-1 text-center">
+                                                                            <input
+                                                                                name={`vocationalYear-${idx}`}
+                                                                                type="text"
+                                                                                value={row.yearStarting}
+                                                                                onChange={(e) => {
+                                                                                    const newRows = [...vocationalRows];
+                                                                                    newRows[idx].yearStarting = e.target.value;
+                                                                                    setVocationalRows(newRows);
+                                                                                }}
+                                                                                placeholder="YYYY"
+                                                                                className="w-full bg-transparent focus:outline-none text-center"
+                                                                            />
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+
+                                                    <div className="p-3 bg-primary-100/50 rounded-xl border border-primary-200">
+                                                        <p className="text-[10px] text-primary-800 leading-normal">
+                                                            <span className="font-bold">Usage Logic:</span><br />
+                                                            • <span className="font-bold">New Recognition:</span> Declare intended sectors to verify lab capacity.<br />
+                                                            • <span className="font-bold">Recognition Renewal:</span> Audit mode; list all active courses.<br />
+                                                            • <span className="font-bold">Upgradatiton:</span> expansion mode; apply for new courses in higher grades.
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3932,256 +5125,21 @@ export default function ProfilePage() {
                             )}
 
                             {/* Section 1.56: TLM & Textbooks */}
-                            <div className="space-y-4 pt-6 border-t border-neutral-100">
-                                <h3 className="text-lg font-semibold text-neutral-800 pb-2 border-b border-neutral-100">
-                                    1.49 Availability of free text books, Teaching Learning Material (TLM), Play material & Graded Supplementary Material
-                                </h3>
-                                {applicationType === "New Recognition" ? (
-                                    <div className="bg-primary-50 p-4 rounded-xl border border-primary-200 animate-in fade-in">
-                                        <label className="flex items-start gap-3 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="mt-1 w-4 h-4 text-primary-600 rounded border-neutral-300 focus:ring-primary-500"
-                                                checked={hasAgreedToFirstYearActivities}
-                                                onChange={(e) => setHasAgreedToFirstYearActivities(e.target.checked)}
-                                            />
-                                            <span className="text-sm text-neutral-700">
-                                                <span className="font-semibold block mb-1">Declaration for New Recognition</span>
-                                                As a new applicant, we declare that upon recognition, the school will ensure the timely availability of free textbooks, teaching learning materials (TLM), graded supplementary materials, play materials, and uniforms (if applicable) for all relevant grades as per prevailing government guidelines.
-                                            </span>
-                                        </label>
-                                    </div>
-                                ) : (
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full border-collapse border border-neutral-200 text-[11px] md:text-xs">
-                                            <thead>
-                                                <tr className="bg-neutral-100 text-neutral-700">
-                                                    <th className="border border-neutral-200 p-2 text-center w-12">Sl. No.</th>
-                                                    <th className="border border-neutral-200 p-2 text-left w-64">Indicators</th>
-                                                    <th className="border border-neutral-200 p-2 text-center">Pre-Primary</th>
-                                                    <th className="border border-neutral-200 p-2 text-center">Primary</th>
-                                                    <th className="border border-neutral-200 p-2 text-center">Upper Primary</th>
-                                                    <th className="border border-neutral-200 p-2 text-center">Secondary</th>
-                                                    <th className="border border-neutral-200 p-2 text-center">Higher Secondary</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {[
-                                                    { id: "1.56.1", label: "Whether complete set of free textbooks received?", type: "select" },
-                                                    { id: "1.56.1.1", label: "When were the textbooks received in the current academic year? (e.g. 05-May)", type: "text" },
-                                                    { id: "1.56.2", label: "Whether TLM available for each grade?", type: "select" },
-                                                    { id: "1.56.3", label: "Whether the school has received Graded Supplementary Material in previous academic year?", type: "select" },
-                                                    { id: "1.56.3.1", label: "If Yes, whether the school utilize graded supplementary material in classroom transactions", type: "select" },
-                                                    { id: "1.56.4", label: "Whether play material, games and sports equipment available for each grade?", type: "select" },
-                                                    { id: "1.56.5", label: "Whether the school has provided free uniform to the students?", type: "select" },
-                                                    { id: "1.56.5.1", label: "If Yes, Mention the month in which the uniforms were provided to students in the current academic year (e.g. 05-May)", type: "text" },
-                                                ].map((row, idx) => (
-                                                    <tr key={idx} className="bg-white hover:bg-neutral-50">
-                                                        <td className="border border-neutral-200 p-2 text-center font-medium text-neutral-600">{row.id}</td>
-                                                        <td className="border border-neutral-200 p-2 text-neutral-700">{row.label}</td>
-                                                        {['prePrimary', 'primary', 'upperPrimary', 'secondary', 'higherSecondary'].map((col) => (
-                                                            <td key={col} className="border border-neutral-200 p-1 min-w-20">
-                                                                {row.type === "select" ? (
-                                                                    <select
-                                                                        className="w-full bg-transparent focus:outline-none p-1 text-center"
-                                                                        value={sec156[idx][col as keyof Sec156Row]}
-                                                                        onChange={(e) => {
-                                                                            const newSec = [...sec156];
-                                                                            newSec[idx][col as keyof Sec156Row] = e.target.value;
-                                                                            setSec156(newSec);
-                                                                        }}
-                                                                    >
-                                                                        <option value="">-</option>
-                                                                        <option value="1-YES">1-YES</option>
-                                                                        <option value="2-NO">2-NO</option>
-                                                                    </select>
-                                                                ) : (
-                                                                    <input
-                                                                        type="text"
-                                                                        className="w-full bg-transparent focus:outline-none p-1 text-center"
-                                                                        value={sec156[idx][col as keyof Sec156Row]}
-                                                                        onChange={(e) => {
-                                                                            const newSec = [...sec156];
-                                                                            newSec[idx][col as keyof Sec156Row] = e.target.value;
-                                                                            setSec156(newSec);
-                                                                        }}
-                                                                        placeholder="-"
-                                                                    />
-                                                                )}
-                                                            </td>
-                                                        ))}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
 
-                            {/* Section 1.57: KPIs */}
-                            <div className="space-y-4 pt-6 border-t border-neutral-100">
-                                <h3 className="text-lg font-semibold text-neutral-800 pb-2 border-b border-neutral-100">
-                                    1.50 Key Performing Indicators (KPI) on teaching, learning (in previous academic year), materials etc.
-                                </h3>
-                                {applicationType === "New Recognition" ? (
-                                    <div className="bg-primary-50 p-4 rounded-xl border border-primary-200 animate-in fade-in">
-                                        <p className="text-sm text-neutral-700">
-                                            <span className="font-semibold block mb-1">Not Applicable for New Recognition</span>
-                                            As a new applicant with no previous academic year data, KPIs on teaching and learning will be evaluated during your first operational cycle and subsequent renewals. Focus on your first-year declarations.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4 animate-in fade-in">
-                                        {applicationType === "Upgradation" && (
-                                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2">
-                                                <div className="text-blue-600 mt-0.5 font-bold">ℹ️</div>
-                                                <p className="text-[10px] text-blue-800 leading-tight">
-                                                    <span className="font-bold">Upgradation Note:</span> High numbers in Learning Outcomes Assessment (1.57.1) and Cyber Safety Orientation (1.57.3) are crucial indicators of readiness for secondary/higher secondary responsibilities.
-                                                </p>
-                                            </div>
-                                        )}
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full border-collapse border border-neutral-200 text-[11px] md:text-xs">
-                                                <thead>
-                                                    <tr className="bg-neutral-100 text-neutral-700">
-                                                        <th className="border border-neutral-200 p-2 text-center w-8">KPI</th>
-                                                        <th className="border border-neutral-200 p-2 text-left w-56">Indicator Name</th>
-                                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(cls => (
-                                                            <th key={cls} className="border border-neutral-200 p-1 text-center min-w-10 text-[10px] md:text-xs">Cl {cls}</th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {[
-                                                        { id: "1.57.1", label: "Number of learning outcome based assessment items created in total", field: "assessment" as const, type: "number" },
-                                                        { id: "1.57.2", label: "Whether the school actively undertakes academic enrichment activities (Project, portfolio, etc)? (1-YES / 2-NO)", field: "enrichment" as const, type: "select" },
-                                                        { id: "1.57.3", label: "Number of students received orientation on cyber safety", field: "cyber" as const, type: "number" },
-                                                        { id: "1.57.4", label: "Number of students received training on psycho-social aspects", field: "psycho" as const, type: "number" },
-                                                    ].map((row, rowIdx) => (
-                                                        <tr key={rowIdx} className="bg-white hover:bg-neutral-50">
-                                                            <td className="border border-neutral-200 p-2 text-center font-medium text-neutral-600">{row.id}</td>
-                                                            <td className="border border-neutral-200 p-2 text-neutral-700">{row.label}</td>
-                                                            {Array.from({ length: 12 }, (_, i) => i).map((colIdx) => {
-                                                                const isClass1to5 = colIdx < 5;
-                                                                const isDisabled = row.id === "1.57.1" && isClass1to5;
-
-                                                                return (
-                                                                    <td key={colIdx} className={`border border-neutral-200 p-0 ${isDisabled ? 'bg-neutral-200/50' : ''}`}>
-                                                                        {isDisabled ? (
-                                                                            <div className="w-full h-full flex items-center justify-center text-neutral-400 text-[10px]">N/A</div>
-                                                                        ) : row.type === "select" ? (
-                                                                            <select
-                                                                                className="w-full bg-transparent focus:outline-none p-1 text-center text-[10px] md:text-[11px] cursor-pointer"
-                                                                                value={sec157[colIdx][row.field]}
-                                                                                onChange={(e) => {
-                                                                                    const newSec = [...sec157];
-                                                                                    newSec[colIdx][row.field] = e.target.value;
-                                                                                    setSec157(newSec);
-                                                                                }}
-                                                                            >
-                                                                                <option value="">-</option>
-                                                                                <option value="1-YES">Y</option>
-                                                                                <option value="2-NO">N</option>
-                                                                            </select>
-                                                                        ) : (
-                                                                            <input
-                                                                                type="number"
-                                                                                className="w-full bg-transparent focus:outline-none p-1 text-center min-w-6 text-[10px] md:text-[11px]"
-                                                                                value={sec157[colIdx][row.field]}
-                                                                                onChange={(e) => {
-                                                                                    const newSec = [...sec157];
-                                                                                    newSec[colIdx][row.field] = e.target.value;
-                                                                                    setSec157(newSec);
-                                                                                }}
-                                                                                placeholder="0"
-                                                                            />
-                                                                        )}
-                                                                    </td>
-                                                                );
-                                                            })}
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        {applicationType === "Renewal" && sec157.some(cls => cls.enrichment === "2-NO") && (
-                                            <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 animate-in fade-in slide-in-from-top-2">
-                                                <div className="text-red-600 mt-0.5 font-bold">⚠️</div>
-                                                <p className="text-[10px] text-red-700 leading-tight">
-                                                    <span className="font-bold">Renewal Warning:</span> Enrichment activities (1.50.2) are marked as NO for one or more classes. This may trigger a requirement to improve your academic plan before renewal is approved as per the National Curriculum Framework.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     </div>
                 )}
-
+                {stepErrors[1]?.general && (
+                    <div className="text-red-600 text-sm mb-3">
+                        {stepErrors[1].general}
+                    </div>
+                )}
                 {/* Step 1: Receipts and Expenditure */}
                 {currentStep === 1 && (
-                    <div className="space-y-8">
-                        {/* 2.1 Grants */}
-                        {managementGroup !== "C- Private Unaided" && (
-                            <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm space-y-4">
-                                <h3 className="text-lg font-semibold text-neutral-800 pb-2 border-b border-neutral-100">
-                                    2.1 Grants received by the school & expenditure made during the previous financial year
-                                    <span className="block text-sm font-normal text-neutral-500 mt-1">(Only for Govt. and Govt. Aided Schools)</span>
-                                </h3>
 
-                                {applicationType === "New Recognition" ? (
-                                    <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200">
-                                        <p className="text-sm text-neutral-600 italic">Not applicable for New Recognition applications. Grants data will be tracked in subsequent years.</p>
-                                    </div>
-                                ) : (
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full border-collapse border border-neutral-200 text-sm">
-                                            <thead>
-                                                <tr className="bg-neutral-50 text-neutral-700">
-                                                    <th className="border border-neutral-200 p-3 text-left">Grants under Samagra Shiksha</th>
-                                                    <th className="border border-neutral-200 p-3 text-center w-40">Receipt (In Rs.)</th>
-                                                    <th className="border border-neutral-200 p-3 text-center w-40">Expenditure (In Rs.)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {grants.map((grant, idx) => (
-                                                    <tr key={idx} className="bg-white hover:bg-neutral-50">
-                                                        <td className="border border-neutral-200 p-2 font-medium text-neutral-700">{grant.grantName}</td>
-                                                        <td className="border border-neutral-200 p-1">
-                                                            <input
-                                                                type="number"
-                                                                className="w-full bg-transparent p-1 focus:outline-none text-center"
-                                                                value={grant.receipt}
-                                                                onChange={(e) => {
-                                                                    const newGrants = [...grants];
-                                                                    newGrants[idx].receipt = e.target.value;
-                                                                    setGrants(newGrants);
-                                                                }}
-                                                                placeholder="0"
-                                                            />
-                                                        </td>
-                                                        <td className="border border-neutral-200 p-1">
-                                                            <input
-                                                                type="number"
-                                                                className="w-full bg-transparent p-1 focus:outline-none text-center"
-                                                                value={grant.expenditure}
-                                                                onChange={(e) => {
-                                                                    const newGrants = [...grants];
-                                                                    newGrants[idx].expenditure = e.target.value;
-                                                                    setGrants(newGrants);
-                                                                }}
-                                                                placeholder="0"
-                                                            />
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                    <div className="space-y-8">
+
+
 
                         {/* 1.60 Assistance */}
                         <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm space-y-4">
@@ -4218,6 +5176,8 @@ export default function ProfilePage() {
                                                             }
                                                             setAssistance(newAst);
                                                         }}
+
+
                                                     >
                                                         <option value="">Select</option>
                                                         <option value="1-Yes">1-Yes</option>
@@ -4330,6 +5290,7 @@ export default function ProfilePage() {
                                                         <option value="">Select</option>
                                                         <option value="1-Yes">1-Yes</option>
                                                         <option value="2-No">2-No</option>
+
                                                     </select>
                                                 </td>
                                             </tr>
@@ -4381,12 +5342,14 @@ export default function ProfilePage() {
                                                     <td className="border border-neutral-200 p-2 text-center text-neutral-500">1.62.1</td>
                                                     <td className="border border-neutral-200 p-2 font-medium text-neutral-700">Maintenance/ Housekeeping</td>
                                                     <td className="border border-neutral-200 p-1">
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-transparent p-1 focus:outline-none text-center"
+                                                        <InputField
+                                                            name="expMaintenance"
+                                                            label="Maintenance Expenditure"
                                                             value={expMaintenance}
                                                             onChange={(e) => setExpMaintenance(e.target.value)}
-                                                            placeholder="0"
+                                                            type="number"
+                                                            placeholder="Enter maintenance expenditure"
+                                                            error={stepErrors[1]?.expMaintenance}
                                                         />
                                                     </td>
                                                 </tr>
@@ -4399,12 +5362,14 @@ export default function ProfilePage() {
                                                         )}
                                                     </td>
                                                     <td className="border border-neutral-200 p-1">
-                                                        <input
+                                                        <InputField
+                                                            name="expMaintenance"
+                                                            label="Maintenance Expenditure"
+                                                            value={expMaintenance}
+                                                            onChange={(e) => setExpMaintenance(e.target.value)}
                                                             type="number"
-                                                            className="w-full bg-transparent p-1 focus:outline-none text-center"
-                                                            value={expTeachers}
-                                                            onChange={(e) => setExpTeachers(e.target.value)}
-                                                            placeholder="0"
+                                                            placeholder="Enter maintenance expenditure"
+                                                            error={stepErrors[1]?.expMaintenance}
                                                         />
                                                     </td>
                                                 </tr>
@@ -4474,27 +5439,45 @@ export default function ProfilePage() {
                     currentStep === 3 && (
                         <div className="grid md:grid-cols-2 gap-5">
                             <div className="md:col-span-2">
-                                <InputField label="4.1 Address" placeholder="Full address" value={address} onChange={(e) => setAddress(e.target.value)} />
-                            </div>
+                                <InputField
+                                    name="address"
+                                    label="Address"
+                                    value={address}
+                                    onChange={(e) => setAddress(e.target.value)}
+                                    placeholder="Enter school address"
+                                    error={stepErrors[3]?.address}
+                                />                            </div>
                             <SelectField
+                                name="locationType"
                                 label="4.2 School Location Type"
                                 options={["Rural", "Urban"]}
                                 value={locationType}
                                 onChange={(e) => setLocationType(e.target.value)}
+                                error={stepErrors[0]?.locationType || stepErrors[3]?.locationType}
                             />
-                            <InputField label="4.3 Pin Code" placeholder="6-digit pin code" value={pinCode} onChange={(e) => setPinCode(e.target.value)} />
+                            <InputField
+                                name="pinCode"
+                                label="Pin Code"
+                                value={pinCode}
+                                onChange={(e) => setPinCode(e.target.value)}
+                                placeholder="Enter pin code"
+                                error={stepErrors[3]?.pinCode}
+                            />
 
                             {locationType === "Rural" && (
+
                                 <>
                                     <InputField label="4.4 Revenue Block / CD Block (As Per LGD)" placeholder="Enter Revenue Block" value={revenueBlock} onChange={(e) => setRevenueBlock(e.target.value)} />
-                                    <InputField label="4.5 Village Name (As Per LGD)" placeholder="Enter Village Name" value={villageName} onChange={(e) => setVillageName(e.target.value)} />
-                                    <InputField label="4.6 Name of Gram Panchayat (As Per LGD)" placeholder="Enter Gram Panchayat Name" value={gramPanchayat} onChange={(e) => setGramPanchayat(e.target.value)} />
+                                    <InputField label="4.5 Village Name (As Per LGD)" placeholder="Enter Village Name" value={villageName} onChange={(e) => setVillageName(e.target.value)} error={stepErrors[3]?.villageName} />
+                                    <InputField label="4.6 Name of Gram Panchayat (As Per LGD)" placeholder="Enter Gram Panchayat Name" value={gramPanchayat} onChange={(e) => setGramPanchayat(e.target.value)} error={stepErrors[3]?.gramPanchayat}
+                                    />
                                 </>
                             )}
 
                             {locationType === "Urban" && (
                                 <>
-                                    <InputField label="4.7 Urban Local bodies (As per LGD)" placeholder="Municipalities/Nagar Panchayat etc." value={urbanLocalBody} onChange={(e) => setUrbanLocalBody(e.target.value)} />
+                                    <InputField label="4.7 Urban Local bodies (As per LGD)" placeholder="Municipalities/Nagar Panchayat etc." value={urbanLocalBody} onChange={(e) => setUrbanLocalBody(e.target.value)} error={stepErrors[3]?.urbanLocalBody}
+                                    />
                                     <InputField label="4.8 Ward Name (As Per LGD)" placeholder="Enter Ward Name" value={wardName} onChange={(e) => setWardName(e.target.value)} />
                                 </>
                             )}
@@ -4503,8 +5486,10 @@ export default function ProfilePage() {
                             <InputField label="4.10 Name of the Assembly Constituency" placeholder="Enter Assembly Constituency" value={assemblyConstituency} onChange={(e) => setAssemblyConstituency(e.target.value)} />
                             <InputField label="4.11 Name of the Parliamentary Constituency" placeholder="Enter Parliamentary Constituency" value={parliamentaryConstituency} onChange={(e) => setParliamentaryConstituency(e.target.value)} />
 
-                            <InputField label="4.12 District" placeholder="District" value={district} onChange={(e) => setDistrict(e.target.value)} />
-                            <InputField label="4.13 Taluka" placeholder="Taluka" value={taluka} onChange={(e) => setTaluka(e.target.value)} />
+                            <InputField label="4.12 District" placeholder="District" value={district} onChange={(e) => setDistrict(e.target.value)} error={stepErrors[3]?.district}
+                            />
+                            <InputField label="4.13 Taluka" placeholder="Taluka" value={taluka} onChange={(e) => setTaluka(e.target.value)} error={stepErrors[3]?.taluka}
+                            />
                             <InputField label="4.14 GPS Latitude" placeholder="e.g. 19.0760" />
                             <InputField label="4.15 GPS Longitude" placeholder="e.g. 72.8777" />
                             <InputField label="4.16 Email" type="email" placeholder="school@example.com" />
@@ -4527,10 +5512,12 @@ export default function ProfilePage() {
                                     <div className="grid md:grid-cols-2 gap-6">
                                         <div className="space-y-3">
                                             <SelectField
-                                                label="Building Ownership Status"
+                                                name="buildingStatus"
+                                                label="Building Status"
                                                 value={buildingStatus}
                                                 onChange={(e) => setBuildingStatus(e.target.value)}
-                                                options={["1-Private", "2-Rented", "3-Government", "4-Government school in a rent free building", "5-NO Building", "7-Building Under Construction", "10-School running in other Department Building"]}
+                                                options={["1-Government", "2-Rented", "3-Private", "4-Other"]}
+                                                error={stepErrors[4]?.buildingStatus}
                                             />
                                             {applicationType === "New Recognition" && buildingStatus === "2-Rented" && (
                                                 <UploadField label="Upload Rent Agreement (Min 3-5 Years)" />
@@ -4632,7 +5619,10 @@ export default function ProfilePage() {
 
                                     <div className="grid md:grid-cols-3 gap-6 pt-4 border-t border-neutral-100">
                                         <div className="space-y-2">
-                                            <InputField label="Total Number of Rooms for Instructional purposes" type="number" value={totalInstructionalRooms} onChange={(e) => setTotalInstructionalRooms(e.target.value)} placeholder="0" />
+                                            <InputField label="Total Number of Rooms for Instructional purposes" type="number" value={totalInstructionalRooms}
+                                                onChange={(e) => setTotalInstructionalRooms(e.target.value)}
+                                                placeholder="Enter total rooms"
+                                                error={stepErrors[4]?.totalInstructionalRooms} />
                                             {(Number(classroomsPrePrimary) + Number(classroomsPrimary) + Number(classroomsUpperPrimary) + Number(classroomsSecondary) + Number(classroomsHigherSecondary) + Number(classroomsNotInUse)) !== Number(totalInstructionalRooms) && totalInstructionalRooms !== "" && (
                                                 <p className="text-[10px] text-amber-600 font-bold bg-amber-50 p-2 rounded border border-amber-200 mt-2">
                                                     ⚠️ Mismatch: Does not equal sum of categories.
@@ -4708,6 +5698,7 @@ export default function ProfilePage() {
                                                 value={boundaryWall}
                                                 onChange={(e) => setBoundaryWall(e.target.value)}
                                                 options={["1-Pucca", "2-Pucca but broken", "3-Barbed wire fencing", "4-Hedges", "5-No boundary walls", "6-Others", "7-Partial", "8-Under Construction"]}
+                                                error={stepErrors[4]?.boundaryWall}
                                             />
                                             {applicationType === "New Recognition" && ["3-Barbed wire fencing", "4-Hedges", "5-No boundary walls"].includes(boundaryWall) && (
                                                 <p className="text-[10px] text-red-600 font-bold bg-red-50 p-2 rounded border border-red-200 mt-2">
@@ -4727,10 +5718,12 @@ export default function ProfilePage() {
 
                                     <div className="grid md:grid-cols-2 gap-6 mb-4">
                                         <SelectField
-                                            label="(a) Whether Electricity connection is available?"
+                                            name="hasElectricity"
+                                            label="Electricity Available"
                                             value={hasElectricity}
                                             onChange={(e) => setHasElectricity(e.target.value)}
-                                            options={["1-Yes", "2-No", "3-Yes but not functional"]}
+                                            options={["1-Yes", "2-No"]}
+                                            error={stepErrors[4]?.hasElectricity}
                                         />
                                     </div>
 
@@ -5148,7 +6141,15 @@ export default function ProfilePage() {
                                                 <tr className="bg-white hover:bg-neutral-50">
                                                     <td className="border border-neutral-200 p-2 font-medium">Book Bank</td>
                                                     <td className="border border-neutral-200 p-1"><select className="w-full bg-transparent p-1 focus:outline-none text-center cursor-pointer" value={hasBookBank} onChange={(e) => setHasBookBank(e.target.value)}><option value="">Select</option><option value="1-Yes">1-Yes</option><option value="2-No">2-No</option></select></td>
-                                                    <td className="border border-neutral-200 p-1"><input type="number" className="w-full bg-transparent p-1 text-center focus:outline-none" value={bookBankBooks} onChange={(e) => setBookBankBooks(e.target.value)} placeholder="0" disabled={hasBookBank === "2-No"} /></td>
+                                                    <td className="border border-neutral-200 p-1"><InputField
+                                                        name="libraryBooks"
+                                                        label="Number of Books"
+                                                        value={libraryBooks}
+                                                        onChange={(e) => setLibraryBooks(e.target.value)}
+                                                        type="number"
+                                                        placeholder="Enter number of books"
+                                                        error={stepErrors[4]?.libraryBooks}
+                                                    /></td>
                                                 </tr>
                                                 <tr className="bg-white hover:bg-neutral-50">
                                                     <td className="border border-neutral-200 p-2 font-medium">Reading Corner</td>
@@ -5228,14 +6229,26 @@ export default function ProfilePage() {
                                     <h4 className="font-semibold text-base text-primary-800 pb-2 border-b border-neutral-100">5.13 Playground Facilities</h4>
 
                                     <div className="grid md:grid-cols-2 gap-6">
-                                        <SelectField label="Whether Playground facility is available in the School?" value={hasPlayground} onChange={(e) => setHasPlayground(e.target.value)} options={["1-Yes", "2-No"]} />
-
+                                        <SelectField
+                                            name="hasPlayground"
+                                            label="Playground Available"
+                                            value={hasPlayground}
+                                            onChange={(e) => setHasPlayground(e.target.value)}
+                                            options={["1-Yes", "2-No"]}
+                                            error={stepErrors[4]?.hasPlayground}
+                                        />
                                         {hasPlayground === "1-Yes" && (
                                             <div className="flex flex-col space-y-2">
                                                 <label className="text-sm font-medium text-neutral-700">If 1-Yes then Area of Playground</label>
                                                 <div className="flex gap-2">
-                                                    <input type="number" className="flex-1 w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all text-sm outline-none" value={playgroundArea} onChange={(e) => setPlaygroundArea(e.target.value)} placeholder="Area Size" />
-                                                    <select className="w-1/3 p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all text-sm outline-none cursor-pointer" value={playgroundUnit} onChange={(e) => setPlaygroundUnit(e.target.value)}>
+                                                    <InputField
+                                                        name="playgroundArea"
+                                                        label="Playground Area"
+                                                        value={playgroundArea}
+                                                        onChange={(e) => setPlaygroundArea(e.target.value)}
+                                                        placeholder="Enter area in sq.ft"
+                                                        error={stepErrors[4]?.playgroundArea}
+                                                    />                                                    <select className="w-1/3 p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all text-sm outline-none cursor-pointer" value={playgroundUnit} onChange={(e) => setPlaygroundUnit(e.target.value)}>
                                                         <option value="Square Meter">Square Meter</option><option value="Square Feet">Square Feet</option><option value="Square Yard">Square Yard</option>
                                                     </select>
                                                 </div>
@@ -5284,8 +6297,14 @@ export default function ProfilePage() {
                                         <SelectField label="(d) Whether school maintains Annual health records?" value={maintainsHealthRecords} onChange={(e) => setMaintainsHealthRecords(e.target.value)} options={["1-Yes", "2-No"]} />
                                         <SelectField label="(e) Is thermal scanner available in the school?" value={hasThermalScanner} onChange={(e) => setHasThermalScanner(e.target.value)} options={["1-Yes", "2-No"]} />
                                         <div className="space-y-2">
-                                            <SelectField label="(f) Is First Aid facility available?" value={hasFirstAid} onChange={(e) => setHasFirstAid(e.target.value)} options={["1-Yes", "2-No"]} />
-                                            {applicationType === "Renewal" && hasFirstAid === "2-No" && (
+                                            <SelectField
+                                                name="hasFirstAid"
+                                                label="First Aid Facility Available"
+                                                value={hasFirstAid}
+                                                onChange={(e) => setHasFirstAid(e.target.value)}
+                                                options={["1-Yes", "2-No"]}
+                                                error={stepErrors[6]?.hasFirstAid}
+                                            />                                            {applicationType === "Renewal" && hasFirstAid === "2-No" && (
                                                 <p className="text-[10px] text-red-600 font-bold bg-red-50 p-2 rounded border border-red-200">
                                                     ❌ Safety Violation: First aid is mandatory for all schools.
                                                 </p>
@@ -5807,14 +6826,32 @@ export default function ProfilePage() {
                                             <tr className="bg-white">
                                                 <td className="border border-neutral-200 p-2 font-medium">(a) REGULAR TEACHING STAFFS</td>
                                                 <td className="border border-neutral-200 p-1">
-                                                    <input type="number" className="w-full bg-transparent p-1.5 focus:outline-none text-center" value={staffCounts.regular} onChange={(e) => setStaffCounts({ ...staffCounts, regular: e.target.value })} placeholder="0" />
-                                                </td>
+                                                    <InputField
+                                                        name="regular"
+                                                        label="Regular Staff"
+                                                        value={staffCounts.regular}
+                                                        onChange={(e) =>
+                                                            setStaffCounts({ ...staffCounts, regular: e.target.value })
+                                                        }
+                                                        type="number"
+                                                        placeholder="Enter regular staff count"
+                                                        error={stepErrors[5]?.regular}
+                                                    />                                                </td>
                                             </tr>
                                             <tr className="bg-white">
                                                 <td className="border border-neutral-200 p-2 font-medium">(b) NON-REGULAR TEACHING STAFFS (Contract, Part Time, Guest etc.)</td>
                                                 <td className="border border-neutral-200 p-1">
-                                                    <input type="number" className="w-full bg-transparent p-1.5 focus:outline-none text-center" value={staffCounts.nonRegular} onChange={(e) => setStaffCounts({ ...staffCounts, nonRegular: e.target.value })} placeholder="0" />
-                                                </td>
+                                                    <InputField
+                                                        name="nonRegular"
+                                                        label="Non-Regular Staff"
+                                                        value={staffCounts.nonRegular}
+                                                        onChange={(e) =>
+                                                            setStaffCounts({ ...staffCounts, nonRegular: e.target.value })
+                                                        }
+                                                        type="number"
+                                                        placeholder="Enter non-regular staff count"
+                                                        error={stepErrors[5]?.nonRegular}
+                                                    />                                                </td>
                                             </tr>
                                             <tr className="bg-neutral-50 font-bold">
                                                 <td className="border border-neutral-200 p-2">Total Teaching Staff in Position [(a)+(b)]</td>
@@ -6022,6 +7059,13 @@ export default function ProfilePage() {
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-neutral-50">
+                                                                {stepErrors[5]?.teachers && (
+                                                                    <tr>
+                                                                        <td colSpan={5} className="text-red-600 text-sm p-3">
+                                                                            {stepErrors[5].teachers}
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
                                                                 {teachers.map((t) => {
                                                                     const isElementary = t.appointedLevel === "1-PRT/Primary Teacher" || t.appointedLevel === "2-TGT/Trained Graduate Teacher";
                                                                     const isTETMissing = isElementary && t.isTETQualified === "2-No";
@@ -6510,10 +7554,12 @@ export default function ProfilePage() {
                                         {/* 1.58.1 School Disaster Management Plan */}
                                         <div className="space-y-3">
                                             <SelectField
-                                                label="7.1 Whether the School Disaster Management Plan (SDMP) has been developed? (1-Yes, 2-No)"
+                                                name="hasDisasterPlan"
+                                                label="Disaster Management Plan Available"
                                                 value={hasDisasterPlan}
                                                 onChange={(e) => setHasDisasterPlan(e.target.value)}
                                                 options={["1-Yes", "2-No"]}
+                                                error={stepErrors[6]?.hasDisasterPlan}
                                             />
                                             {hasDisasterPlan === "1-Yes" && (
                                                 <UploadField label="Upload SDMP Document" />
@@ -6556,6 +7602,7 @@ export default function ProfilePage() {
                                                 value={hasCCTV}
                                                 onChange={(e) => setHasCCTV(e.target.value)}
                                                 options={["1-Yes", "2-No"]}
+                                                error={stepErrors[6]?.hasCCTV}
                                             />
                                             {applicationType === "Upgradation" && hasCCTV === "2-No" && (
                                                 <p className="text-[10px] text-amber-600 font-semibold italic">Upgradation: Ensure CCTV coverage extends to new classrooms/buildings.</p>
@@ -6565,10 +7612,12 @@ export default function ProfilePage() {
                                         {/* 1.58.5 Fire Extinguishers */}
                                         <div className="space-y-3">
                                             <SelectField
-                                                label="7.5 Whether Fire Extinguishers are installed? (1-Yes, 2-No)"
+                                                name="hasFireExtinguishers"
+                                                label="Fire Extinguishers Available"
                                                 value={hasFireExtinguishers}
                                                 onChange={(e) => setHasFireExtinguishers(e.target.value)}
                                                 options={["1-Yes", "2-No"]}
+                                                error={stepErrors[6]?.hasFireExtinguishers}
                                             />
                                             {hasFireExtinguishers === "1-Yes" && (
                                                 <UploadField label="Upload Fire Department Certificate" />
@@ -6595,6 +7644,7 @@ export default function ProfilePage() {
                                                 value={hasSafetyTraining}
                                                 onChange={(e) => setHasSafetyTraining(e.target.value)}
                                                 options={["1-Yes", "2-No"]}
+                                                error={stepErrors[6]?.hasSafetyTraining}
                                             />
                                             {hasSafetyTraining === "1-Yes" && applicationType === "Renewal" && (
                                                 <InputField
@@ -6885,6 +7935,11 @@ export default function ProfilePage() {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
+                                                    {stepErrors[7]?.sections && (
+                                                        <div className="text-red-600 text-sm mb-3">
+                                                            {stepErrors[7].sections}
+                                                        </div>
+                                                    )}
                                                     {sectionConfigs.map((cfg, idx) => (
                                                         <tr key={cfg.className} className={`border-b border-neutral-100 ${["Nursery", "LKG", "UKG"].includes(cfg.className)
                                                             ? "bg-violet-50/50"
@@ -6987,6 +8042,13 @@ export default function ProfilePage() {
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-neutral-50">
+                                                                {stepErrors[7]?.students && (
+                                                                    <tr>
+                                                                        <td colSpan={10} className="text-red-600 text-sm p-3">
+                                                                            {stepErrors[7].students}
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
                                                                 {students.map((s) => (
                                                                     <tr key={s.id} className="hover:bg-neutral-50/50 transition-colors">
                                                                         <td className="px-4 py-4">
@@ -7360,18 +8422,21 @@ export default function ProfilePage() {
                                         </h3>
                                         <div className="grid md:grid-cols-3 gap-5">
                                             <InputField
-                                                label="9.1 Number of Guest Lecturers conducted"
-                                                type="number"
+                                                name="vocationalGuestLecturers"
+                                                label="Number of Guest Lecturers"
                                                 value={vocationalGuestLecturers}
                                                 onChange={(e) => setVocationalGuestLecturers(e.target.value)}
-                                                placeholder="e.g. 5"
+                                                type="number"
+                                                placeholder="Enter number"
+                                                error={stepErrors[8]?.vocationalGuestLecturers}
                                             />
                                             <InputField
                                                 label="9.2 Number of industry visits organized"
                                                 type="number"
                                                 value={vocationalIndustryVisits}
                                                 onChange={(e) => setVocationalIndustryVisits(e.target.value)}
-                                                placeholder="e.g. 2"
+                                                placeholder="Enter number"
+                                                error={stepErrors[8]?.vocationalIndustryVisits}
                                             />
                                             <InputField
                                                 label="9.3 Number of Industries Linkages"
@@ -7527,10 +8592,166 @@ export default function ProfilePage() {
                             )}
                         </div>
                     )
+
                 }
+                {currentStep === 9 && (
+                    <>
+                        <div className="space-y-6">
+
+                            <h2 className="text-xl font-semibold">Transportation Details</h2>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                {/* Fitness Certificate */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Fitness Certificate *
+                                    </label>
+                                    <select
+                                        value={transFitnessCert}
+                                        onChange={(e) => setTransFitnessCert(e.target.value)}
+                                        className="w-full border rounded px-3 py-2"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="1-Yes">Yes</option>
+                                        <option value="2-No">No</option>
+                                    </select>
+                                </div>
+
+                                {/* Permit */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Transport Permit *
+                                    </label>
+                                    <select
+                                        value={transPermit}
+                                        onChange={(e) => setTransPermit(e.target.value)}
+                                        className="w-full border rounded px-3 py-2"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="1-Yes">Yes</option>
+                                        <option value="2-No">No</option>
+                                    </select>
+                                </div>
+
+                                {/* Driver Experience */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Driver Experience *
+                                    </label>
+                                    <select
+                                        value={transDriverExperience}
+                                        onChange={(e) => setTransDriverExperience(e.target.value)}
+                                        className="w-full border rounded px-3 py-2"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="1-Less than 1 year">Less than 1 year</option>
+                                        <option value="2-1 to 3 years">1 to 3 years</option>
+                                        <option value="3-More than 3 years">More than 3 years</option>
+                                    </select>
+                                </div>
+
+                                {/* No Traffic Offences */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        No Traffic Offences *
+                                    </label>
+                                    <select
+                                        value={transDriverNoTrafficOffences}
+                                        onChange={(e) => setTransDriverNoTrafficOffences(e.target.value)}
+                                        className="w-full border rounded px-3 py-2"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="1-Yes">Yes</option>
+                                        <option value="2-No">No</option>
+                                    </select>
+                                </div>
+
+                                {/* Vehicle Age */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Vehicle Age *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={transVehicleAge}
+                                        onChange={(e) => setTransVehicleAge(e.target.value)}
+                                        className="w-full border rounded px-3 py-2"
+                                    />
+                                </div>
+
+                                {/* Speed Governor */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Speed Governor Installed *
+                                    </label>
+                                    <select
+                                        value={transSpeedGovernor}
+                                        onChange={(e) => setTransSpeedGovernor(e.target.value)}
+                                        className="w-full border rounded px-3 py-2"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="1-Yes">Yes</option>
+                                        <option value="2-No">No</option>
+                                    </select>
+                                </div>
+
+                                {/* School Name on Bus */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        School Name Written on Bus *
+                                    </label>
+                                    <select
+                                        value={transSchoolNameWritten}
+                                        onChange={(e) => setTransSchoolNameWritten(e.target.value)}
+                                        className="w-full border rounded px-3 py-2"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="1-Yes">Yes</option>
+                                        <option value="2-No">No</option>
+                                    </select>
+                                </div>
+
+                                {/* Auto Safety */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Auto Safety Measures *
+                                    </label>
+                                    <select
+                                        value={transAutoSafety}
+                                        onChange={(e) => setTransAutoSafety(e.target.value)}
+                                        className="w-full border rounded px-3 py-2"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="1-Yes">Yes</option>
+                                        <option value="2-No">No</option>
+                                    </select>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </>
+                )}
 
                 {/* Navigation Buttons */}
                 <div className="flex flex-wrap items-center justify-between mt-8 pt-6 border-t border-neutral-100 gap-3">
+
+                    {/* Global step error banner */}
+                    {stepErrors[currentStep] && Object.keys(stepErrors[currentStep]).length > 0 && (
+                        <div className="w-full mb-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                            <span className="text-red-500 font-bold mt-0.5">⚠️</span>
+                            <div>
+                                <p className="text-xs font-bold text-red-700 mb-1">Please fix the following errors before proceeding:</p>
+                                <ul className="list-disc list-inside space-y-0.5">
+                                    {Object.values(stepErrors[currentStep]).map((err, i) => (
+                                        <li key={i} className="text-xs text-red-600">{err as string}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+
                     <button
                         suppressHydrationWarning
                         onClick={prev}
@@ -7541,12 +8762,17 @@ export default function ProfilePage() {
                     </button>
 
                     <div className="flex gap-3">
-                        <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors">
-                            <FiSave size={16} /> Save
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                        >
+                            {saveSuccess ? <FiCheck size={16} className="text-emerald-600" /> : <FiSave size={16} />}
+                            {isSaving ? "Saving…" : saveSuccess ? "Saved!" : "Save"}
                         </button>
 
                         {currentStep === steps.length - 1 ? (
-                            <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-colors">
+                            <button type="button" onClick={handleSubmit} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-colors">
                                 <FiSend size={16} /> Submit
                             </button>
                         ) : (
@@ -7578,7 +8804,9 @@ function InputField({
     value,
     onChange,
     disabled = false,
-    required = false
+    required = false,
+    name,
+    error,
 }: {
     label: string;
     type?: string;
@@ -7587,6 +8815,8 @@ function InputField({
     onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
     disabled?: boolean;
     required?: boolean;
+    name?: string;
+    error?: string;
 }) {
     return (
         <div>
@@ -7596,13 +8826,22 @@ function InputField({
             </label>
             <input
                 suppressHydrationWarning
+                name={name}
                 type={type}
                 placeholder={placeholder}
                 value={value}
                 onChange={onChange}
                 disabled={disabled}
-                className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-neutral-50 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full px-4 py-2.5 rounded-xl border text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all bg-neutral-50 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed ${error
+                    ? "border-red-400 focus:ring-red-400 bg-red-50"
+                    : "border-neutral-200 focus:ring-primary-500"
+                    }`}
             />
+            {error && (
+                <p className="mt-1 text-xs font-semibold text-red-600 flex items-center gap-1">
+                    <span>⚠</span> {error}
+                </p>
+            )}
         </div>
     );
 }
@@ -7613,7 +8852,9 @@ function SelectField({
     value,
     onChange,
     disabled = false,
-    required = false
+    required = false,
+    name,
+    error,
 }: {
     label: string;
     options: string[];
@@ -7621,6 +8862,8 @@ function SelectField({
     onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     disabled?: boolean;
     required?: boolean;
+    name?: string;
+    error?: string;
 }) {
     return (
         <div>
@@ -7630,16 +8873,25 @@ function SelectField({
             </label>
             <select
                 suppressHydrationWarning
+                name={name}
                 value={value}
                 onChange={onChange}
                 disabled={disabled}
-                className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-neutral-50 focus:bg-white appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full px-4 py-2.5 rounded-xl border text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:border-transparent transition-all bg-neutral-50 focus:bg-white appearance-none disabled:opacity-50 disabled:cursor-not-allowed ${error
+                    ? "border-red-400 focus:ring-red-400 bg-red-50"
+                    : "border-neutral-200 focus:ring-primary-500"
+                    }`}
             >
                 <option value="">{disabled ? `Select group first` : `Select ${label}`}</option>
                 {options.map((o) => (
                     <option key={o} value={o}>{o}</option>
                 ))}
             </select>
+            {error && (
+                <p className="mt-1 text-xs font-semibold text-red-600 flex items-center gap-1">
+                    <span>⚠</span> {error}
+                </p>
+            )}
         </div>
     );
 }
@@ -7726,3 +8978,5 @@ function SearchableMultiSelect({
         </div>
     );
 }
+
+

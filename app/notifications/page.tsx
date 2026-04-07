@@ -13,7 +13,18 @@ import {
 import { API_BASE_URL } from "@/lib/api";
 
 // ─── Change to logged-in school's ID (from auth/session) ──────────────────────
-const SCHOOL_ID = "school_001";
+let schoolId = "";
+let token = "";
+
+if (typeof window !== "undefined") {
+  const raw = localStorage.getItem("user");
+
+  if (raw) {
+    const user = JSON.parse(raw);
+    schoolId = user.user_id;
+    token = user.access_token;
+  }
+}
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -110,14 +121,23 @@ function NotificationSkeleton() {
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount]     = useState(0);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState<string | null>(null);
-  const [markingAllRead, setMarkingAllRead] = useState(false);
-
-  // ── Load on mount ──────────────────────────────────────────────────────────
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+const [markingAllRead, setMarkingAllRead] = useState(false);
   useEffect(() => {
-    fetchNotifications(SCHOOL_ID)
+    const raw = localStorage.getItem("user");
+
+    if (!raw) {
+      setError("User not logged in");
+      setLoading(false);
+      return;
+    }
+
+    const user = JSON.parse(raw);
+    const schoolId = user.user_id;
+
+    fetchNotifications(schoolId)
       .then((data) => {
         setNotifications(data.notifications);
         setUnreadCount(data.unread_count);
@@ -135,7 +155,7 @@ export default function NotificationsPage() {
     );
     setUnreadCount((prev) => Math.max(0, prev - 1));
     // fire and forget — read state doesn't need rollback
-    await markOneRead(SCHOOL_ID, notif.id).catch(() => {});
+    await markOneRead(schoolId, notif.id);
   };
 
   // ── Mark all as read (optimistic) ─────────────────────────────────────────
@@ -145,7 +165,7 @@ export default function NotificationsPage() {
     // optimistic update
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
-    await markAllRead(SCHOOL_ID).catch(() => {});
+    await markAllRead(schoolId).catch(() => { });
     setMarkingAllRead(false);
   };
 
@@ -173,8 +193,8 @@ export default function NotificationsPage() {
             {loading
               ? "Loading…"
               : unreadCount > 0
-              ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
-              : "All caught up!"}
+                ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
+                : "All caught up!"}
           </p>
         </div>
         {!loading && unreadCount > 0 && (
@@ -209,16 +229,15 @@ export default function NotificationsPage() {
         {!loading &&
           notifications.map((n) => {
             const config = typeConfig[n.type] ?? typeConfig.info;
-            const Icon   = config.icon;
+            const Icon = config.icon;
 
             return (
               <div
                 key={n.id}
-                className={`bg-white rounded-2xl shadow-sm border p-5 transition-all duration-300 ${
-                  n.read
+                className={`bg-white rounded-2xl shadow-sm border p-5 transition-all duration-300 ${n.read
                     ? "border-neutral-100 opacity-70"
                     : `${config.border} border-l-4`
-                }`}
+                  }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`p-2.5 rounded-xl ${config.bg} shrink-0`}>

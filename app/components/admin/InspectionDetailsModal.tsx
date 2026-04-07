@@ -2,16 +2,16 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-    X, 
-    Calendar, 
-    Clock, 
-    MapPin, 
-    User, 
-    Phone, 
-    Mail, 
-    Shield, 
-    FileText, 
+import {
+    X,
+    Calendar,
+    Clock,
+    MapPin,
+    User,
+    Phone,
+    Mail,
+    Shield,
+    FileText,
     AlertCircle,
     CheckCircle2,
     ArrowRight,
@@ -19,22 +19,22 @@ import {
     CalendarClock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/api";
 import SendNotificationModal from "./SendNotificationModal";
 import RescheduleInspectionModal from "./RescheduleInspectionModal";
+import type { InspectionData } from "@/app/admin/(main)/inspections/page";
 
 interface InspectionDetailsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    inspection: {
-        name: string;
-        date: string;
-        inspector: string;
-        district: string;
-        type: string;
-    } | null;
+    inspection: InspectionData | null;
+    token?: string;              // ← ADD
+    onStatusUpdate?: () => void; // ← ADD
 }
 
-export default function InspectionDetailsModal({ isOpen, onClose, inspection }: InspectionDetailsModalProps) {
+export default function InspectionDetailsModal({
+    isOpen, onClose, inspection, token, onStatusUpdate
+}: InspectionDetailsModalProps) {
     const [showReschedule, setShowReschedule] = React.useState(false);
     const [showNotification, setShowNotification] = React.useState(false);
 
@@ -51,7 +51,7 @@ export default function InspectionDetailsModal({ isOpen, onClose, inspection }: 
                         onClick={onClose}
                         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                     />
-                    
+
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -66,7 +66,7 @@ export default function InspectionDetailsModal({ isOpen, onClose, inspection }: 
                             >
                                 <X className="w-5 h-5" />
                             </button>
-                            
+
                             <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
                                     <Shield className="w-8 h-8 text-white" />
@@ -120,8 +120,8 @@ export default function InspectionDetailsModal({ isOpen, onClose, inspection }: 
                                         <div className={cn(
                                             "inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold",
                                             inspection.type === "Regular" ? "bg-blue-50 text-blue-700" :
-                                            inspection.type === "Surprise" ? "bg-rose-50 text-rose-700" :
-                                            "bg-amber-50 text-amber-700"
+                                                inspection.type === "Surprise" ? "bg-rose-50 text-rose-700" :
+                                                    "bg-amber-50 text-amber-700"
                                         )}>
                                             <Shield className="w-3.5 h-3.5" />
                                             {inspection.type} Audit Mode
@@ -174,18 +174,37 @@ export default function InspectionDetailsModal({ isOpen, onClose, inspection }: 
                             {/* Actions */}
                             <div className="mt-10 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
-                                    <button 
+                                    <button
                                         onClick={() => setShowReschedule(true)}
                                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-200"
                                     >
                                         <CalendarClock className="w-4 h-4" />
                                         Reschedule
                                     </button>
-                                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all border border-rose-100">
+                                    <button
+                                        onClick={async () => {
+                                            if (token && inspection?.inspection_id) {
+                                                await fetch(
+                                                    `${API_BASE_URL}/admin/inspections/${inspection.inspection_id}/status`,
+                                                    {
+                                                        method: "PATCH",
+                                                        headers: {
+                                                            Authorization: `Bearer ${token}`,
+                                                            "Content-Type": "application/json",
+                                                        },
+                                                        body: JSON.stringify({ status: "Cancelled" }),
+                                                    }
+                                                );
+                                                onStatusUpdate?.();
+                                            }
+                                            onClose();
+                                        }}
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all border border-rose-100"
+                                    >
                                         Cancel Audit
                                     </button>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setShowNotification(true)}
                                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 group"
                                 >
@@ -197,14 +216,14 @@ export default function InspectionDetailsModal({ isOpen, onClose, inspection }: 
                     </motion.div>
 
                     {/* Nested Modals */}
-                    <SendNotificationModal 
+                    <SendNotificationModal
                         isOpen={showNotification}
                         onClose={() => setShowNotification(false)}
                         recipientName={inspection.inspector}
                         schoolName={inspection.name}
                     />
 
-                    <RescheduleInspectionModal 
+                    <RescheduleInspectionModal
                         isOpen={showReschedule}
                         onClose={() => setShowReschedule(false)}
                         inspection={inspection}

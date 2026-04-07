@@ -17,6 +17,9 @@ import {
     Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/api";
+import type { InspectionData } from "@/app/admin/(main)/inspections/page";
+
 
 // ─── Mock Officers (same pool as ScheduleInspectionModal) ────────
 
@@ -41,21 +44,17 @@ const reassignReasons = [
 
 // ─── Types ───────────────────────────────────────────────────────
 
-export interface InspectionData {
-    name: string;
-    date: string;
-    inspector: string;
-    district: string;
-    type: string;
-}
+
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     inspection: InspectionData | null;
+    onSuccess?: () => void;   // ← ADD
+    token?: string;           // ← ADD
 }
-
-export default function ReassignInspectorModal({ isOpen, onClose, inspection }: Props) {
+ 
+export default function ReassignInspectorModal({ isOpen, onClose, inspection, onSuccess, token }: Props) {
     const [selectedOfficer, setSelectedOfficer] = useState<typeof mockOfficers[0] | null>(null);
     const [officerDropdownOpen, setOfficerDropdownOpen] = useState(false);
     const [officerSearch, setOfficerSearch] = useState("");
@@ -126,9 +125,36 @@ export default function ReassignInspectorModal({ isOpen, onClose, inspection }: 
 
     const canSubmit = selectedOfficer && reason && newDate && newTime;
 
-    const handleSubmit = () => {
-        setSubmitted(true);
-        setTimeout(() => onClose(), 2200);
+    const handleSubmit = async () => {
+        if (!canSubmit || !selectedOfficer || !inspection) return;
+        setSubmitted(true);   // show success UI
+ 
+        // Fire API call if we have a real inspection_id and token
+        if (token && inspection.inspection_id) {
+            try {
+                await fetch(
+                    `${API_BASE_URL}/admin/inspections/${inspection.inspection_id}/reassign`,
+                    {
+                        method: "PATCH",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            inspector: selectedOfficer.name,
+                            reason:    reason || undefined,
+                        }),
+                    }
+                );
+            } catch {
+                // Silent fail
+            }
+        }
+ 
+        setTimeout(() => {
+            onSuccess?.();   // ← refresh parent list
+            onClose();
+        }, 2200);
     };
 
     if (!isOpen || !inspection) return null;

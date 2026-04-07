@@ -13,10 +13,6 @@ import {
 } from "react-icons/fi";
 import { API_BASE_URL } from "@/lib/api";
 
-// ─── Change to logged-in school's ID (from auth/session) ──────────────────────
-const SCHOOL_ID = "school_001";
-
-// ─── Types ─────────────────────────────────────────────────────────────────────
 
 type InspectionStatus  = "Scheduled" | "In Progress" | "Completed" | "Cancelled";
 type ChecklistStatus   = "Satisfactory" | "Needs Improvement" | "Not Checked";
@@ -106,13 +102,23 @@ function Skeleton({ className }: { className?: string }) {
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
 export default function InspectionPage() {
-  const [data, setData]       = useState<InspectionPageResponse | null>(null);
+  const [data, setData] = useState<InspectionPageResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // ── Load on mount ──────────────────────────────────────────────────────────
   useEffect(() => {
-    fetchInspectionPage(SCHOOL_ID)
+    const raw = localStorage.getItem("user");
+
+    if (!raw) {
+      setError("User not logged in");
+      setLoading(false);
+      return;
+    }
+
+    const user = JSON.parse(raw);
+    const schoolId = user.user_id;
+
+    fetchInspectionPage(schoolId)
       .then(setData)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));

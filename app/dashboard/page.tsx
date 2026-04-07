@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import DashboardLayout from "../components/DashboardLayout";
 import {
   FiCheckCircle,
@@ -17,14 +18,21 @@ import {
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api";
 
-// ─── Change to the logged-in school's ID (from your auth/session) ─────────────
-const SCHOOL_ID = "school_001";
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ApplicationStatus = "Draft" | "Submitted" | "Under Review" | "Approved" | "Rejected";
-type InspectionStatus  = "Pending" | "Scheduled" | "Completed" | "Failed";
+type InspectionStatus = "Pending" | "Scheduled" | "Completed" | "Failed";
 type CertificateStatus = "Not Issued" | "Issued" | "Expired" | "Revoked";
+
+interface StoredUser {
+  user_id: string;
+  email: string;
+  role: string;
+  full_name?: string;
+  school_name?: string;
+  udise_number?: string;
+  access_token: string;
+}
 
 interface ProfileCompletionResponse {
   school_id: string;
@@ -81,8 +89,21 @@ interface DashboardSummaryResponse {
 
 // ─── API calls ────────────────────────────────────────────────────────────────
 
-async function fetchDashboardSummary(schoolId: string): Promise<DashboardSummaryResponse> {
-  const res = await fetch(`${API_BASE_URL}/dashboard/${schoolId}/summary`);
+async function fetchDashboardSummary(
+  schoolId: string,
+  token: string
+): Promise<DashboardSummaryResponse> {
+  const res = await fetch(`${API_BASE_URL}/dashboard/${schoolId}/summary`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (res.status === 401) {
+    localStorage.removeItem("user");
+    throw new Error("Unauthorized");
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err?.detail ?? `Error ${res.status}`);
@@ -90,42 +111,47 @@ async function fetchDashboardSummary(schoolId: string): Promise<DashboardSummary
   return res.json();
 }
 
-async function fetchMarkNotificationRead(schoolId: string, notifId: string): Promise<void> {
+async function fetchMarkNotificationRead(
+  schoolId: string,
+  notifId: string,
+  token: string
+): Promise<void> {
   await fetch(`${API_BASE_URL}/dashboard/${schoolId}/notifications/${notifId}/read`, {
     method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 // ─── Style maps ───────────────────────────────────────────────────────────────
 
 const appStatusStyle: Record<string, string> = {
-  Draft:          "bg-neutral-100 text-neutral-600",
-  Submitted:      "bg-blue-50 text-blue-700",
+  Draft: "bg-neutral-100 text-neutral-600",
+  Submitted: "bg-blue-50 text-blue-700",
   "Under Review": "bg-amber-50 text-amber-700",
-  Approved:       "bg-emerald-50 text-emerald-700",
-  Rejected:       "bg-red-50 text-red-700",
+  Approved: "bg-emerald-50 text-emerald-700",
+  Rejected: "bg-red-50 text-red-700",
 };
 
 const inspectionStyle: Record<string, { bg: string; icon: string }> = {
-  Pending:   { bg: "bg-amber-50",   icon: "text-amber-500"   },
-  Scheduled: { bg: "bg-blue-50",    icon: "text-blue-500"    },
+  Pending: { bg: "bg-amber-50", icon: "text-amber-500" },
+  Scheduled: { bg: "bg-blue-50", icon: "text-blue-500" },
   Completed: { bg: "bg-emerald-50", icon: "text-emerald-500" },
-  Failed:    { bg: "bg-red-50",     icon: "text-red-500"     },
+  Failed: { bg: "bg-red-50", icon: "text-red-500" },
 };
 
 const certStyle: Record<string, { bg: string; icon: string }> = {
   "Not Issued": { bg: "bg-neutral-100", icon: "text-neutral-400" },
-  Issued:       { bg: "bg-emerald-50",  icon: "text-emerald-500" },
-  Expired:      { bg: "bg-red-50",      icon: "text-red-500"     },
-  Revoked:      { bg: "bg-red-50",      icon: "text-red-500"     },
+  Issued: { bg: "bg-emerald-50", icon: "text-emerald-500" },
+  Expired: { bg: "bg-red-50", icon: "text-red-500" },
+  Revoked: { bg: "bg-red-50", icon: "text-red-500" },
 };
 
 const notifColorMap: Record<string, string> = {
-  blue:  "text-blue-500 bg-blue-50",
+  blue: "text-blue-500 bg-blue-50",
   amber: "text-amber-500 bg-amber-50",
-  red:   "text-red-500 bg-red-50",
+  red: "text-red-500 bg-red-50",
   green: "text-emerald-500 bg-emerald-50",
-  bell:  "text-purple-500 bg-purple-50",
+  bell: "text-purple-500 bg-purple-50",
 };
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
@@ -133,10 +159,10 @@ const notifColorMap: Record<string, string> = {
 function NotifIcon({ iconType }: { iconType: string }) {
   switch (iconType) {
     case "clipboard": return <FiClipboard size={14} />;
-    case "alert":     return <FiAlertCircle size={14} />;
-    case "user":      return <FiUser size={14} />;
-    case "award":     return <FiAward size={14} />;
-    default:          return <FiBell size={14} />;
+    case "alert": return <FiAlertCircle size={14} />;
+    case "user": return <FiUser size={14} />;
+    case "award": return <FiAward size={14} />;
+    default: return <FiBell size={14} />;
   }
 }
 
@@ -147,71 +173,140 @@ function Skeleton({ className }: { className?: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [data,    setData]    = useState<DashboardSummaryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const router = useRouter();
 
-  // Load entire dashboard in one API call
+  // ── Auth state — populated after guard check ─────────────────────────────
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // ── Dashboard data ────────────────────────────────────────────────────────
+  const [data, setData] = useState<DashboardSummaryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ── Step 1: Auth guard ────────────────────────────────────────────────────
+  // Runs once on mount. Reads localStorage, validates role, sets currentUser.
   useEffect(() => {
-    fetchDashboardSummary(SCHOOL_ID)
-      .then(setData)
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
+    setIsClient(true);
   }, []);
 
-  // Mark notification read + optimistic UI update
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    try {
+      const raw = localStorage.getItem("user");
+
+      if (!raw) {
+        router.replace("/login");
+        return;
+      }
+
+      const parsed: StoredUser = JSON.parse(raw);
+
+      if (!parsed.user_id || !parsed.access_token || parsed.role !== "school") {
+        localStorage.removeItem("user");
+        router.replace("/login");
+        return;
+      }
+
+      setCurrentUser(parsed);
+    } catch {
+      router.replace("/login");
+    }
+  }, [router, isClient]);
+
+  // ── Step 2: Fetch dashboard data once user is confirmed ───────────────────
+  // Depends on currentUser — won't run until auth guard sets it.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    fetchDashboardSummary(currentUser.user_id, currentUser.access_token)
+      .then(setData)
+      .catch((err: any) => {
+        if (err.message === "Unauthorized") {
+          router.replace("/login");
+          return;
+        }
+        setError(err.message);
+      })
+      .finally(() => setLoading(false));
+  }, [currentUser]);
+
+  // ── Mark notification read + optimistic UI update ─────────────────────────
   const handleNotifClick = async (notif: NotificationResponse) => {
-    if (notif.is_read) return;
+    if (notif.is_read || !currentUser) return;
+
+    // Optimistic update — mark as read in UI immediately
     setData((prev) =>
       prev
         ? {
-            ...prev,
-            recent_notifications: prev.recent_notifications.map((n) =>
-              n.id === notif.id ? { ...n, is_read: true } : n
-            ),
-          }
+          ...prev,
+          recent_notifications: prev.recent_notifications.map((n) =>
+            n.id === notif.id ? { ...n, is_read: true } : n
+          ),
+        }
         : prev
     );
-    await fetchMarkNotificationRead(SCHOOL_ID, notif.id).catch(() => {});
+
+    // Sync with backend (fire-and-forget; failures are silent)
+    await fetchMarkNotificationRead(
+      currentUser.user_id,
+      notif.id,
+      currentUser.access_token
+    ).catch(() => { });
   };
 
-  // Profile sections in display order
+  // ── Derived display values ────────────────────────────────────────────────
+
   const sectionOrder = [
-    "Basic Details",
-    "Location Details",
-    "Infrastructure",
-    "Staff Details",
-    "Safety Documents",
+    "basic_details",
+    "location",
+    "infrastructure",
+    "staff",
+    "safety",
   ];
   const profileSections = data
     ? sectionOrder.map((label) => ({
-        label,
-        done: data.profile_completion.sections[label] ?? false,
-      }))
+      label,
+      done: data.profile_completion.sections[label] ?? false,
+    }))
     : [];
 
   const completionPct = data?.profile_completion.completion_percentage ?? 0;
 
   const appStatus = data?.application?.status ?? null;
-  const appId     = data?.application?.application_id ?? "—";
-  const appDate   = data?.application?.submitted_on
+  const appId = data?.application?.application_id ?? "—";
+  const appDate = data?.application?.submitted_on
     ? new Date(data.application.submitted_on).toLocaleDateString("en-IN", {
-        day: "2-digit", month: "short", year: "numeric",
-      })
+      day: "2-digit", month: "short", year: "numeric",
+    })
     : "—";
 
   const inspStatus = data?.inspection.status ?? "Pending";
-  const insp       = inspectionStyle[inspStatus] ?? inspectionStyle["Pending"];
-  const inspDate   = data?.inspection.scheduled_date ?? "Not Scheduled";
+  const insp = inspectionStyle[inspStatus] ?? inspectionStyle["Pending"];
+  const inspDate = data?.inspection.scheduled_date ?? "Not Scheduled";
 
   const certStatus = data?.certificate.status ?? "Not Issued";
-  const cert       = certStyle[certStatus] ?? certStyle["Not Issued"];
-  const certSub    =
+  const cert = certStyle[certStatus] ?? certStyle["Not Issued"];
+  const certSub =
     certStatus === "Issued"
       ? `Valid until ${data?.certificate.valid_until ?? "—"}`
       : "Complete profile & inspection first";
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Don't render anything until auth guard resolves ───────────────────────
+  if (!isClient) return null;
+  if (!currentUser) return null;
+
+  const labelMap: Record<string, string> = {
+    basic_details: "Basic Details",
+    location: "Location Details",
+    infrastructure: "Infrastructure",
+    staff: "Staff Details",
+    safety: "Safety Documents",
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
 
@@ -220,7 +315,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900">
           {loading
             ? <Skeleton className="h-8 w-72" />
-            : `Welcome, ${data?.school_name ?? "Your School"}`}
+            : `Welcome, ${data?.school_name ?? currentUser.school_name ?? "Your School"}`}
         </h1>
         <p className="text-neutral-500 mt-1">
           Manage your school profile, applications, and certificates
@@ -231,9 +326,9 @@ export default function DashboardPage() {
           <div className="mt-3 flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
             <FiAlertCircle size={16} className="shrink-0" />
             <span>
-              Could not connect to backend:{" "}
+              Could not load dashboard:{" "}
               <span className="font-semibold">{error}</span>.{" "}
-              Update <code className="font-mono text-xs">API_BASE_URL</code> in{" "}
+              Check your <code className="font-mono text-xs">API_BASE_URL</code> in{" "}
               <code className="font-mono text-xs">api.ts</code>.
             </span>
           </div>
@@ -243,10 +338,10 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Complete Profile",   icon: FiUser,     href: "/profile",      color: "from-blue-500 to-blue-700"       },
+          { label: "Complete Profile", icon: FiUser, href: "/profile", color: "from-blue-500 to-blue-700" },
           { label: "Submit Application", icon: FiFileText, href: "/registration", color: "from-emerald-500 to-emerald-700" },
-          { label: "Track Status",       icon: FiActivity, href: "/status",       color: "from-amber-500 to-amber-700"     },
-          { label: "View Certificates",  icon: FiAward,    href: "/certificates", color: "from-purple-500 to-purple-700"   },
+          { label: "Track Status", icon: FiActivity, href: "/status", color: "from-amber-500 to-amber-700" },
+          { label: "View Certificates", icon: FiAward, href: "/certificates", color: "from-purple-500 to-purple-700" },
         ].map((action) => (
           <Link
             key={action.label}
@@ -296,9 +391,11 @@ export default function DashboardPage() {
                 <li key={item.label} className="flex items-center gap-3">
                   {item.done
                     ? <FiCheckCircle className="text-emerald-500 shrink-0" size={18} />
-                    : <FiAlertCircle  className="text-amber-500 shrink-0"   size={18} />}
+                    : <FiAlertCircle className="text-amber-500 shrink-0" size={18} />}
                   <span className={`text-sm ${item.done ? "text-neutral-600" : "text-neutral-800 font-medium"}`}>
-                    {item.label}
+
+                    {labelMap[item.label] || item.label}
+
                     {!item.done && (
                       <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                         Pending

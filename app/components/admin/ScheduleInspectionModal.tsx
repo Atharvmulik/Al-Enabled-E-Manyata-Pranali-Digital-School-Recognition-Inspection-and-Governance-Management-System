@@ -23,7 +23,8 @@ import {
     Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+import { API_BASE_URL } from "@/lib/api";
+import type { InspectionData } from "@/app/admin/(main)/inspections/page";
 // ─── Mock Data ───────────────────────────────────────────────────
 
 const mockSchools = [
@@ -80,10 +81,11 @@ function generateInspectionId() {
 interface Props {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void;   // ← ADD
+    token?: string;           // ← ADD
 }
 
-export default function ScheduleInspectionModal({ isOpen, onClose }: Props) {
-    // Form state
+export default function ScheduleInspectionModal({ isOpen, onClose, onSuccess, token }: Props) {    // Form state
     const [schoolSearch, setSchoolSearch] = useState("");
     const [selectedSchool, setSelectedSchool] = useState<typeof mockSchools[0] | null>(null);
     const [schoolDropdownOpen, setSchoolDropdownOpen] = useState(false);
@@ -173,9 +175,35 @@ export default function ScheduleInspectionModal({ isOpen, onClose }: Props) {
     };
 
     // Submit
-    const handleSubmit = () => {
-        setSubmitted(true);
+    const handleSubmit = async () => {
+        if (!canSubmit || !selectedSchool || !selectedOfficer) return;
+        setSubmitted(true);   // show success UI immediately (optimistic)
+ 
+        // Fire API call in background — UI already shows success
+        if (token) {
+            try {
+                await fetch(`${API_BASE_URL}/admin/inspections`, {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        school_id:    String(selectedSchool.id),
+                        date:         inspectionDate,
+                        time:         inspectionTime,
+                        inspector:    selectedOfficer.name,
+                        type:         inspectionType,
+                        remarks:      notes || undefined,
+                    }),
+                });
+            } catch {
+                // Silent fail — success UI already shown, list will refresh
+            }
+        }
+ 
         setTimeout(() => {
+            onSuccess?.();   // ← refresh parent list
             onClose();
         }, 2000);
     };

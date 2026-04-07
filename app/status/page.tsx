@@ -12,7 +12,6 @@ import {
 import { API_BASE_URL } from "@/lib/api";
 
 // ─── Change to logged-in school's ID (from auth/session) ──────────────────────
-const SCHOOL_ID = "school_001";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -92,11 +91,11 @@ async function resolveAction(
 // ─── Style helpers ──────────────────────────────────────────────────────────────
 
 const appStatusStyle: Record<string, string> = {
-  Draft:          "bg-neutral-100 text-neutral-600",
-  Submitted:      "bg-blue-50 text-blue-700",
+  Draft: "bg-neutral-100 text-neutral-600",
+  Submitted: "bg-blue-50 text-blue-700",
   "Under Review": "bg-amber-50 text-amber-700",
-  Approved:       "bg-emerald-50 text-emerald-700",
-  Rejected:       "bg-red-50 text-red-700",
+  Approved: "bg-emerald-50 text-emerald-700",
+  Rejected: "bg-red-50 text-red-700",
 };
 
 function formatDate(iso?: string | null): string {
@@ -129,15 +128,34 @@ function Skeleton({ className }: { className?: string }) {
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
 export default function StatusPage() {
-  const [data, setData]             = useState<StatusPageResponse | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
+  const [data, setData] = useState<StatusPageResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [resolving, setResolving]   = useState<string | null>(null);
+  const [resolving, setResolving] = useState<string | null>(null);
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+
+
+  useEffect(() => {
+    const raw = localStorage.getItem("user");
+
+    if (!raw) {
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    setSchoolId(parsed.user_id);
+    setToken(parsed.access_token);
+
+    setIsReady(true);
+  }, []);
 
   // ── Initial full-page load ─────────────────────────────────────────────────
   useEffect(() => {
-    fetchStatusPage(SCHOOL_ID)
+    fetchStatusPage(schoolId as string)
       .then(setData)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -147,7 +165,7 @@ export default function StatusPage() {
   const handleRefreshTimeline = useCallback(async () => {
     setRefreshing(true);
     try {
-      const updated = await fetchTimeline(SCHOOL_ID);
+      const updated = await fetchTimeline(schoolId as string);
       setData((prev) => (prev ? { ...prev, timeline: updated } : prev));
     } catch {
       // silently ignore poll errors
@@ -163,25 +181,25 @@ export default function StatusPage() {
     setData((prev) =>
       prev
         ? {
-            ...prev,
-            pending_actions: prev.pending_actions.map((a) =>
-              a.id === actionId ? { ...a, resolved: true } : a
-            ),
-          }
+          ...prev,
+          pending_actions: prev.pending_actions.map((a) =>
+            a.id === actionId ? { ...a, resolved: true } : a
+          ),
+        }
         : prev
     );
     try {
-      await resolveAction(SCHOOL_ID, actionId);
+      await resolveAction(schoolId as string, actionId);
     } catch (err) {
       // roll back on failure
       setData((prev) =>
         prev
           ? {
-              ...prev,
-              pending_actions: prev.pending_actions.map((a) =>
-                a.id === actionId ? { ...a, resolved: false } : a
-              ),
-            }
+            ...prev,
+            pending_actions: prev.pending_actions.map((a) =>
+              a.id === actionId ? { ...a, resolved: false } : a
+            ),
+          }
           : prev
       );
       alert((err as Error).message);
@@ -205,6 +223,9 @@ export default function StatusPage() {
     );
   }
 
+  if (!isReady) return null;
+  if (!schoolId || !token) return <div>Please login</div>;
+
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
@@ -221,47 +242,46 @@ export default function StatusPage() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {loading
           ? [...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5"
-              >
-                <Skeleton className="h-3 w-28 mb-3" />
-                <Skeleton className="h-5 w-36" />
-              </div>
-            ))
+            <div
+              key={i}
+              className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5"
+            >
+              <Skeleton className="h-3 w-28 mb-3" />
+              <Skeleton className="h-5 w-36" />
+            </div>
+          ))
           : [
-              { label: "Application ID",   value: data?.application_id   ?? "—" },
-              { label: "Application Type", value: data?.application_type ?? "—" },
-              { label: "Submitted On",     value: formatDate(data?.submitted_on) },
-              {
-                label: "Current Status",
-                value: data?.current_status ?? "—",
-                badge: true,
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5"
-              >
-                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-1">
-                  {item.label}
-                </p>
-                {item.badge ? (
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full ${
-                      appStatusStyle[item.value] ?? appStatusStyle["Draft"]
+            { label: "Application ID", value: data?.application_id ?? "—" },
+            { label: "Application Type", value: data?.application_type ?? "—" },
+            { label: "Submitted On", value: formatDate(data?.submitted_on) },
+            {
+              label: "Current Status",
+              value: data?.current_status ?? "—",
+              badge: true,
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5"
+            >
+              <p className="text-xs text-neutral-400 uppercase tracking-wider mb-1">
+                {item.label}
+              </p>
+              {item.badge ? (
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full ${appStatusStyle[item.value] ?? appStatusStyle["Draft"]
                     }`}
-                  >
-                    {item.value === "Under Review" && (
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
-                    )}
-                    {item.value}
-                  </span>
-                ) : (
-                  <p className="text-sm font-semibold text-neutral-800">{item.value}</p>
-                )}
-              </div>
-            ))}
+                >
+                  {item.value === "Under Review" && (
+                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                  )}
+                  {item.value}
+                </span>
+              ) : (
+                <p className="text-sm font-semibold text-neutral-800">{item.value}</p>
+              )}
+            </div>
+          ))}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -303,13 +323,12 @@ export default function StatusPage() {
                   {/* Step icon + connector line */}
                   <div className="flex flex-col items-center">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                        step.status === "done"
-                          ? "bg-emerald-100 text-emerald-600"
-                          : step.status === "current"
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${step.status === "done"
+                        ? "bg-emerald-100 text-emerald-600"
+                        : step.status === "current"
                           ? "bg-primary-100 text-primary-600 ring-4 ring-primary-50"
                           : "bg-neutral-100 text-neutral-400"
-                      }`}
+                        }`}
                     >
                       {step.status === "done" ? (
                         <FiCheckCircle size={18} />
@@ -321,11 +340,10 @@ export default function StatusPage() {
                     </div>
                     {i < (data?.timeline.length ?? 0) - 1 && (
                       <div
-                        className={`w-0.5 flex-1 mt-2 ${
-                          step.status === "done"
-                            ? "bg-emerald-300"
-                            : "bg-neutral-200"
-                        }`}
+                        className={`w-0.5 flex-1 mt-2 ${step.status === "done"
+                          ? "bg-emerald-300"
+                          : "bg-neutral-200"
+                          }`}
                       />
                     )}
                   </div>
@@ -333,13 +351,12 @@ export default function StatusPage() {
                   {/* Step text */}
                   <div className="pt-1.5 pb-2">
                     <h3
-                      className={`text-sm font-bold ${
-                        step.status === "current"
-                          ? "text-primary-700"
-                          : step.status === "done"
+                      className={`text-sm font-bold ${step.status === "current"
+                        ? "text-primary-700"
+                        : step.status === "done"
                           ? "text-neutral-800"
                           : "text-neutral-400"
-                      }`}
+                        }`}
                     >
                       {step.label}
                     </h3>
@@ -373,23 +390,20 @@ export default function StatusPage() {
                 {data?.remarks.map((remark) => (
                   <div
                     key={remark.id}
-                    className={`rounded-xl p-4 border ${
-                      remark.is_urgent
-                        ? "bg-amber-50 border-amber-200"
-                        : "bg-neutral-50 border-neutral-100"
-                    }`}
+                    className={`rounded-xl p-4 border ${remark.is_urgent
+                      ? "bg-amber-50 border-amber-200"
+                      : "bg-neutral-50 border-neutral-100"
+                      }`}
                   >
                     <p
-                      className={`text-sm ${
-                        remark.is_urgent ? "text-amber-800" : "text-neutral-700"
-                      }`}
+                      className={`text-sm ${remark.is_urgent ? "text-amber-800" : "text-neutral-700"
+                        }`}
                     >
                       <strong>{remark.author}:</strong> {remark.message}
                     </p>
                     <p
-                      className={`text-xs mt-2 ${
-                        remark.is_urgent ? "text-amber-600" : "text-neutral-400"
-                      }`}
+                      className={`text-xs mt-2 ${remark.is_urgent ? "text-amber-600" : "text-neutral-400"
+                        }`}
                     >
                       {timeAgo(remark.created_at)}
                     </p>
@@ -418,48 +432,43 @@ export default function StatusPage() {
                 {unresolvedActions.map((action) => (
                   <li
                     key={action.id}
-                    className={`flex items-start gap-3 p-3 rounded-xl border ${
-                      action.severity === "high"
-                        ? "bg-red-50 border-red-100"
-                        : "bg-amber-50 border-amber-100"
-                    }`}
+                    className={`flex items-start gap-3 p-3 rounded-xl border ${action.severity === "high"
+                      ? "bg-red-50 border-red-100"
+                      : "bg-amber-50 border-amber-100"
+                      }`}
                   >
                     <FiUpload
-                      className={`shrink-0 mt-0.5 ${
-                        action.severity === "high"
-                          ? "text-red-500"
-                          : "text-amber-500"
-                      }`}
+                      className={`shrink-0 mt-0.5 ${action.severity === "high"
+                        ? "text-red-500"
+                        : "text-amber-500"
+                        }`}
                       size={18}
                     />
                     <div className="flex-1 min-w-0">
                       <p
-                        className={`text-sm font-medium ${
-                          action.severity === "high"
-                            ? "text-red-800"
-                            : "text-amber-800"
-                        }`}
+                        className={`text-sm font-medium ${action.severity === "high"
+                          ? "text-red-800"
+                          : "text-amber-800"
+                          }`}
                       >
                         {action.title}
                       </p>
                       {action.description && (
                         <p
-                          className={`text-xs mt-0.5 ${
-                            action.severity === "high"
-                              ? "text-red-600"
-                              : "text-amber-600"
-                          }`}
+                          className={`text-xs mt-0.5 ${action.severity === "high"
+                            ? "text-red-600"
+                            : "text-amber-600"
+                            }`}
                         >
                           {action.description}
                         </p>
                       )}
                       {action.due_date && (
                         <p
-                          className={`text-xs mt-0.5 ${
-                            action.severity === "high"
-                              ? "text-red-500"
-                              : "text-amber-500"
-                          }`}
+                          className={`text-xs mt-0.5 ${action.severity === "high"
+                            ? "text-red-500"
+                            : "text-amber-500"
+                            }`}
                         >
                           Due by {formatDate(action.due_date)}
                         </p>
@@ -469,11 +478,10 @@ export default function StatusPage() {
                       onClick={() => handleResolve(action.id)}
                       disabled={resolving === action.id}
                       title="Mark as resolved"
-                      className={`shrink-0 text-xs font-semibold hover:underline disabled:opacity-50 transition-opacity ${
-                        action.severity === "high"
-                          ? "text-red-600"
-                          : "text-amber-600"
-                      }`}
+                      className={`shrink-0 text-xs font-semibold hover:underline disabled:opacity-50 transition-opacity ${action.severity === "high"
+                        ? "text-red-600"
+                        : "text-amber-600"
+                        }`}
                     >
                       {resolving === action.id ? "…" : "Resolve"}
                     </button>
