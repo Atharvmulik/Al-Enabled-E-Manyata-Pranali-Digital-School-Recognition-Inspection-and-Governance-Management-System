@@ -29,18 +29,17 @@ const steps = [
 ];
 
 const STEP_API = [
-    "/profile/basic-details",            // 0
-    "/profile/receipts-expenditure",     // 1
-    "/profile/legal-details",            // 2
-    "/profile/location",                 // 3
-    "/profile/infrastructure",           // 4
-    "/profile/staff",                    // 5
-    "/profile/safety",                   // 6
-    "/profile/student-capacity",         // 7
-    "/profile/vocational-education",     // 8
-    "/profile/transport"                 // ✅ 9 (THIS WAS MISSING)
+    "/profile/basic-details",
+    "/profile/receipts-expenditure",
+    "/profile/legal-details",
+    "/profile/location",
+    "/profile/infrastructure",
+    "/profile/staff",
+    "/profile/safety",
+    "/profile/student-capacity",
+    "/profile/vocational-education",
+    "/profile/transport"   // ✅ was "/profile/transportation"
 ];
-
 
 
 const LANGUAGES = [
@@ -1547,6 +1546,20 @@ export default function ProfilePage() {
                 }
                 break;
             }
+
+            case 9: {
+                setTransFitnessCert(data.trans_fitness_cert || "");
+                setTransVehicleAge(data.trans_vehicle_age || "");
+                setTransPermit(data.trans_permit || "");
+                setTransSpeedGovernor(data.trans_speed_governor || "");
+                setTransSchoolNameWritten(data.trans_school_name_written || "");
+                setTransDriverExperience(data.trans_driver_experience || "");
+                setTransDriverNoTrafficOffences(data.trans_driver_no_traffic_offences || "");
+                setTransAutoSafety(data.trans_auto_safety || "");
+                if (data.fitness_cert_url) setUploadedDocs(prev => ({ ...prev, fitness_certificate: true }));
+                if (data.permit_url) setUploadedDocs(prev => ({ ...prev, transport_permit: true }));
+                break;
+            }
         }
     };
 
@@ -1875,13 +1888,13 @@ export default function ProfilePage() {
     const [activeStaffTab, setActiveStaffTab] = useState<"teaching" | "non-teaching" | "vocational">("teaching");
 
     const [curriculumPrimary, setCurriculumPrimary] = useState("");
-    const [curriculumUpperPrimary, setCurriculumUpperPrimary] = useState("");
-    const [isMinority, setIsMinority] = useState("");
-    const [minorityCommunity, setMinorityCommunity] = useState("");
-    const [isRTE, setIsRTE] = useState("");
-    const [isVocational, setIsVocational] = useState("");
-    const [fundingSource, setFundingSource] = useState("");
-    const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
+const [curriculumUpperPrimary, setCurriculumUpperPrimary] = useState("");
+const [isMinority, setIsMinority] = useState("");
+const [minorityCommunity, setMinorityCommunity] = useState("");
+const [isRTE, setIsRTE] = useState("");
+const [isVocational, setIsVocational] = useState("");
+const [fundingSource, setFundingSource] = useState("");
+const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
     const [vocationalRows, setVocationalRows] = useState<VocationalRow[]>(
         Array(8).fill(null).map(() => ({
             grade: "",
@@ -2207,6 +2220,7 @@ export default function ProfilePage() {
     const [hostelHigherSecondaryBoys, setHostelHigherSecondaryBoys] = useState("");
     const [hostelHigherSecondaryGirls, setHostelHigherSecondaryGirls] = useState("");
 
+
     const isResidentialCapacity =
         hostelPrimaryAvailability === "1-Yes" ||
         hostelUpperPrimaryAvailability === "1-Yes" ||
@@ -2315,9 +2329,7 @@ export default function ProfilePage() {
     const [taluka, setTaluka] = useState("");
 
     // Section 10: Transportation Details
-    const [transFitnessCert, setTransFitnessCert] = useState("");
     const [transVehicleAge, setTransVehicleAge] = useState("");
-    const [transPermit, setTransPermit] = useState("");
     const [transSpeedGovernor, setTransSpeedGovernor] = useState("");
     const [transVehicleExterior, setTransVehicleExterior] = useState("");
     const [transSchoolBusProminent, setTransSchoolBusProminent] = useState("");
@@ -2328,7 +2340,34 @@ export default function ProfilePage() {
     const [transAutoSafety, setTransAutoSafety] = useState("");
     const [transAutoParentInstruction, setTransAutoParentInstruction] = useState("");
     const [transAutoRegistered, setTransAutoRegistered] = useState("");
+    const [fitnessFile, setFitnessFile] = useState<File | null>(null);
+    const [permitFile, setPermitFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
 
+    const [uploadedDocs, setUploadedDocs] = useState<Record<string, { url: string; name: string; id: string }>>({});
+
+    const handleFileUpload = async (
+        e: React.ChangeEvent<HTMLInputElement>,
+        documentType: string
+    ) => {
+        const file = e.target.files?.[0];
+        if (!file || !token) return;
+
+        try {
+            console.log("Uploading:", documentType);
+
+            await uploadDocument(documentType, file);
+
+            setUploadedDocs(prev => ({
+                ...prev,
+                [documentType]: true,
+            }));
+
+        } catch (err) {
+            console.error("UPLOAD ERROR:", err);
+            alert(err instanceof Error ? err.message : "Upload failed");
+        }
+    };
     const progress = Math.round(((currentStep + 1) / steps.length) * 100);
 
     // ─── API state ───────────────────────────────────────────────────────────
@@ -2776,9 +2815,7 @@ export default function ProfilePage() {
     });
     const saveTransport = async () => {
         await apiPut("/profile/transport", {
-            trans_fitness_cert: transFitnessCert,
             trans_vehicle_age: transVehicleAge,
-            trans_permit: transPermit,
             trans_speed_governor: transSpeedGovernor,
             trans_school_name_written: transSchoolNameWritten,
             trans_driver_experience: transDriverExperience,
@@ -3021,17 +3058,30 @@ export default function ProfilePage() {
     };
 
 
-    const uploadDocument = async (documentType: string, file: File): Promise<void> => {
-        const form = new FormData();
-        form.append("file", file);
-        form.append("document_type", documentType);
-        const res = await fetch(
-            `${API_BASE_URL}/profile/upload-document?document_type=${documentType}`,
-            { method: "POST", headers: { ...authHeader() }, body: form }
-        );
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ detail: res.statusText }));
-            throw new Error(err?.detail ?? `Error ${res.status}`);
+    const uploadDoc = async (file: File, type: string) => {
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("document_type", type);
+
+            const res = await fetch(`${API_BASE_URL}/profile/upload-document`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const err = await res.text();
+                console.error("UPLOAD FAILED:", err);
+                throw new Error(err);
+            }
+
+            console.log("UPLOAD SUCCESS");
+        } catch (err) {
+            console.error("UPLOAD ERROR:", err);
+            throw err;
         }
     };
 
@@ -3238,13 +3288,7 @@ export default function ProfilePage() {
             } else if (!/^[0-9]{10}$/.test(mobile)) {
                 errors.mobile = "Invalid mobile number";
             }
-            if (!isMinority) errors.isMinority = "Select minority";
 
-            if (isMinority === "1-Yes" && !minorityCommunity) {
-                errors.minorityCommunity = "Select minority community";
-            }
-            if (!curriculumPrimary) errors.curriculumPrimary = "Required";
-            if (!curriculumUpperPrimary) errors.curriculumUpperPrimary = "Required";
 
 
             if (!email) errors.email = "Email required";
@@ -3357,11 +3401,11 @@ export default function ProfilePage() {
 
         // 🔷 STEP 9: TRANSPORT
         if (step === 9) {
-            if (!transFitnessCert)
-                errors.transFitnessCert = "Fitness certificate required";
+            if (!uploadedDocs?.transport_fitness_certificate)
+                errors.transFitnessCert = "Fitness certificate upload required";
 
-            if (!transPermit)
-                errors.transPermit = "Permit required";
+            if (!uploadedDocs?.transport_permit)
+                errors.transPermit = "Transport permit upload required";
 
             if (!transDriverExperience)
                 errors.transDriverExperience = "Driver experience required";
@@ -8595,143 +8639,147 @@ export default function ProfilePage() {
 
                 }
                 {currentStep === 9 && (
-                    <>
-                        <div className="space-y-6">
+                    <div className="space-y-6">
+                        <h2 className="text-xl font-semibold">Transportation Details</h2>
 
-                            <h2 className="text-xl font-semibold">Transportation Details</h2>
+                        {stepErrors[9] && Object.keys(stepErrors[9]).length > 0 && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                                {Object.values(stepErrors[9]).map((err, i) => (
+                                    <p key={i} className="text-xs text-red-600 font-semibold">{err as string}</p>
+                                ))}
+                            </div>
+                        )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                                {/* Fitness Certificate */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        Fitness Certificate *
-                                    </label>
-                                    <select
-                                        value={transFitnessCert}
-                                        onChange={(e) => setTransFitnessCert(e.target.value)}
-                                        className="w-full border rounded px-3 py-2"
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="1-Yes">Yes</option>
-                                        <option value="2-No">No</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">
+                                    Vehicle Fitness Certificate * <span className="text-xs text-neutral-400">(PDF/JPG/PNG, max 5MB)</span>
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) setFitnessFile(file);
+                                    }} className="w-full border rounded px-3 py-2"
+                                />
+                                {uploadedDocs?.fitness_certificate ? (
+                                    <p className="text-green-600 text-xs mt-1">✅ Uploaded successfully</p>
+                                ) : stepErrors[9]?.transFitnessCert ? (
+                                    <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transFitnessCert}</p>
+                                ) : null}
+                            </div>
 
-                                {/* Permit */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        Transport Permit *
-                                    </label>
-                                    <select
-                                        value={transPermit}
-                                        onChange={(e) => setTransPermit(e.target.value)}
-                                        className="w-full border rounded px-3 py-2"
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="1-Yes">Yes</option>
-                                        <option value="2-No">No</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">
+                                    Transport Permit * <span className="text-xs text-neutral-400">(PDF/JPG/PNG, max 5MB)</span>
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) setPermitFile(file);
+                                    }} className="w-full border rounded px-3 py-2"
+                                />
+                                {uploadedDocs?.transport_permit ? (
+                                    <p className="text-green-600 text-xs mt-1">✅ Uploaded successfully</p>
+                                ) : stepErrors[9]?.transPermit ? (
+                                    <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transPermit}</p>
+                                ) : null}
+                            </div>
 
-                                {/* Driver Experience */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        Driver Experience *
-                                    </label>
-                                    <select
-                                        value={transDriverExperience}
-                                        onChange={(e) => setTransDriverExperience(e.target.value)}
-                                        className="w-full border rounded px-3 py-2"
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="1-Less than 1 year">Less than 1 year</option>
-                                        <option value="2-1 to 3 years">1 to 3 years</option>
-                                        <option value="3-More than 3 years">More than 3 years</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Vehicle Age (years)</label>
+                                <input
+                                    type="number"
+                                    value={transVehicleAge}
+                                    onChange={(e) => setTransVehicleAge(e.target.value)}
+                                    className="w-full border rounded px-3 py-2"
+                                    placeholder="e.g. 3"
+                                />
+                            </div>
 
-                                {/* No Traffic Offences */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        No Traffic Offences *
-                                    </label>
-                                    <select
-                                        value={transDriverNoTrafficOffences}
-                                        onChange={(e) => setTransDriverNoTrafficOffences(e.target.value)}
-                                        className="w-full border rounded px-3 py-2"
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="1-Yes">Yes</option>
-                                        <option value="2-No">No</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Speed Governor Installed</label>
+                                <select
+                                    value={transSpeedGovernor}
+                                    onChange={(e) => setTransSpeedGovernor(e.target.value)}
+                                    className="w-full border rounded px-3 py-2"
+                                >
+                                    <option value="">Select</option>
+                                    <option value="1-Yes">Yes</option>
+                                    <option value="2-No">No</option>
+                                </select>
+                            </div>
 
-                                {/* Vehicle Age */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        Vehicle Age *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={transVehicleAge}
-                                        onChange={(e) => setTransVehicleAge(e.target.value)}
-                                        className="w-full border rounded px-3 py-2"
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">
+                                    Driver Experience *
+                                </label>
+                                <select
+                                    value={transDriverExperience}
+                                    onChange={(e) => setTransDriverExperience(e.target.value)}
+                                    className={`w-full border rounded px-3 py-2 ${stepErrors[9]?.transDriverExperience ? "border-red-400" : ""}`}
+                                >
+                                    <option value="">Select</option>
+                                    <option value="1-Less than 1 year">Less than 1 year</option>
+                                    <option value="2-1 to 3 years">1 to 3 years</option>
+                                    <option value="3-3 to 5 years">3 to 5 years</option>
+                                    <option value="4-More than 5 years">More than 5 years</option>
+                                </select>
+                                {stepErrors[9]?.transDriverExperience && (
+                                    <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transDriverExperience}</p>
+                                )}
+                            </div>
 
-                                {/* Speed Governor */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        Speed Governor Installed *
-                                    </label>
-                                    <select
-                                        value={transSpeedGovernor}
-                                        onChange={(e) => setTransSpeedGovernor(e.target.value)}
-                                        className="w-full border rounded px-3 py-2"
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="1-Yes">Yes</option>
-                                        <option value="2-No">No</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">
+                                    No Traffic Offences *
+                                </label>
+                                <select
+                                    value={transDriverNoTrafficOffences}
+                                    onChange={(e) => setTransDriverNoTrafficOffences(e.target.value)}
+                                    className={`w-full border rounded px-3 py-2 ${stepErrors[9]?.transDriverNoTrafficOffences ? "border-red-400" : ""}`}
+                                >
+                                    <option value="">Select</option>
+                                    <option value="1-Yes">Yes</option>
+                                    <option value="2-No">No</option>
+                                </select>
+                                {stepErrors[9]?.transDriverNoTrafficOffences && (
+                                    <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transDriverNoTrafficOffences}</p>
+                                )}
+                            </div>
 
-                                {/* School Name on Bus */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        School Name Written on Bus *
-                                    </label>
-                                    <select
-                                        value={transSchoolNameWritten}
-                                        onChange={(e) => setTransSchoolNameWritten(e.target.value)}
-                                        className="w-full border rounded px-3 py-2"
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="1-Yes">Yes</option>
-                                        <option value="2-No">No</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">School Name Written on Bus</label>
+                                <select
+                                    value={transSchoolNameWritten}
+                                    onChange={(e) => setTransSchoolNameWritten(e.target.value)}
+                                    className="w-full border rounded px-3 py-2"
+                                >
+                                    <option value="">Select</option>
+                                    <option value="1-Yes">Yes</option>
+                                    <option value="2-No">No</option>
+                                </select>
+                            </div>
 
-                                {/* Auto Safety */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        Auto Safety Measures *
-                                    </label>
-                                    <select
-                                        value={transAutoSafety}
-                                        onChange={(e) => setTransAutoSafety(e.target.value)}
-                                        className="w-full border rounded px-3 py-2"
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="1-Yes">Yes</option>
-                                        <option value="2-No">No</option>
-                                    </select>
-                                </div>
-
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Auto Safety Measures</label>
+                                <select
+                                    value={transAutoSafety}
+                                    onChange={(e) => setTransAutoSafety(e.target.value)}
+                                    className="w-full border rounded px-3 py-2"
+                                >
+                                    <option value="">Select</option>
+                                    <option value="1-Yes">Yes</option>
+                                    <option value="2-No">No</option>
+                                </select>
                             </div>
 
                         </div>
-                    </>
+                    </div>
                 )}
 
                 {/* Navigation Buttons */}
@@ -8978,5 +9026,6 @@ function SearchableMultiSelect({
         </div>
     );
 }
+
 
 

@@ -92,8 +92,8 @@ async function resolveAction(
 
 const appStatusStyle: Record<string, string> = {
   Draft: "bg-neutral-100 text-neutral-600",
-  Submitted: "bg-blue-50 text-blue-700",
   "Under Review": "bg-amber-50 text-amber-700",
+  "Under Inspection": "bg-blue-50 text-blue-700",
   Approved: "bg-emerald-50 text-emerald-700",
   Rejected: "bg-red-50 text-red-700",
 };
@@ -155,11 +155,13 @@ export default function StatusPage() {
 
   // ── Initial full-page load ─────────────────────────────────────────────────
   useEffect(() => {
-    fetchStatusPage(schoolId as string)
+    if (!schoolId) return;
+
+    fetchStatusPage(schoolId)
       .then(setData)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [schoolId]);
 
   // ── Timeline-only refresh (lightweight) ────────────────────────────────────
   const handleRefreshTimeline = useCallback(async () => {
@@ -339,10 +341,12 @@ export default function StatusPage() {
                       )}
                     </div>
                     {i < (data?.timeline.length ?? 0) - 1 && (
+                      
                       <div
-                        className={`w-0.5 flex-1 mt-2 ${step.status === "done"
-                          ? "bg-emerald-300"
-                          : "bg-neutral-200"
+                      
+                        className={`w-0.5 h-full min-h-[40px] mt-2 ${step.status === "done"
+                            ? "bg-emerald-300"
+                            : "bg-neutral-200"
                           }`}
                       />
                     )}

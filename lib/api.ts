@@ -1,1 +1,1 @@
-export const API_BASE_URL = "https://subscribe-scout-run-adipex.trycloudflare.com";
+export const API_BASE_URL = "https://neo-candidates-submitted-enforcement.trycloudflare.com";

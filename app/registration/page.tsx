@@ -55,37 +55,37 @@ interface RegistrationStatus {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: "profile",     label: "Profile Summary"   },
-  { id: "details",     label: "Application Details" },
-  { id: "documents",   label: "Document Upload"    },
-  { id: "declaration", label: "Final Declaration"  },
+  { id: "profile", label: "Profile Summary" },
+  { id: "details", label: "Application Details" },
+  { id: "documents", label: "Document Upload" },
+  { id: "declaration", label: "Final Declaration" },
 ];
 
 const REQUIRED_DOCS: Record<ApplicationType, { type: string; label: string; hint: string }[]> = {
   "New Recognition": [
     {
-      type:  "land_building_deed",
+      type: "land_building_deed",
       label: "Land / Building Ownership or Lease Deed",
-      hint:  "Registered sale deed, lease agreement (min 3 years) or govt allotment letter",
+      hint: "Registered sale deed, lease agreement (min 3 years) or govt allotment letter",
     },
     {
-      type:  "trust_society_declaration",
+      type: "trust_society_declaration",
       label: "Trust / Society Declaration",
-      hint:  "Registration certificate of the Trust / Society / Company",
+      hint: "Registration certificate of the Trust / Society / Company",
     },
   ],
   "Renewal": [
     {
-      type:  "noc_renewal",
+      type: "noc_renewal",
       label: "NOC for Renewal from Local Body (if required)",
-      hint:  "Obtain NOC from Municipal Corporation / Gram Panchayat",
+      hint: "Obtain NOC from Municipal Corporation / Gram Panchayat",
     },
   ],
   "Upgradation": [
     {
-      type:  "management_resolution",
+      type: "management_resolution",
       label: "Resolution from School Management to Upgrade",
-      hint:  "Formal resolution passed by the Managing Committee / Board of Trustees",
+      hint: "Formal resolution passed by the Managing Committee / Board of Trustees",
     },
   ],
 };
@@ -121,39 +121,36 @@ function StepBar({ current }: { current: number }) {
     <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5 mb-6">
       <div className="flex items-center justify-between">
         {STEPS.map((step, idx) => {
-          const isActive    = idx === current;
+          const isActive = idx === current;
           const isCompleted = idx < current;
           return (
             <React.Fragment key={step.id}>
               <div className="flex flex-col items-center gap-1.5 flex-1">
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
-                    isCompleted
-                      ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
-                      : isActive
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${isCompleted
+                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
+                    : isActive
                       ? "bg-primary-600 text-white shadow-lg shadow-primary-600/30 scale-110"
                       : "bg-neutral-100 text-neutral-400"
-                  }`}
+                    }`}
                 >
                   {isCompleted ? <FiCheckCircle size={16} /> : idx + 1}
                 </div>
                 <span
-                  className={`text-xs font-semibold text-center hidden sm:block ${
-                    isActive
-                      ? "text-primary-700"
-                      : isCompleted
+                  className={`text-xs font-semibold text-center hidden sm:block ${isActive
+                    ? "text-primary-700"
+                    : isCompleted
                       ? "text-emerald-600"
                       : "text-neutral-400"
-                  }`}
+                    }`}
                 >
                   {step.label}
                 </span>
               </div>
               {idx < STEPS.length - 1 && (
                 <div
-                  className={`flex-1 h-0.5 mx-1 transition-all duration-500 ${
-                    idx < current ? "bg-emerald-400" : "bg-neutral-200"
-                  }`}
+                  className={`flex-1 h-0.5 mx-1 transition-all duration-500 ${idx < current ? "bg-emerald-400" : "bg-neutral-200"
+                    }`}
                 />
               )}
             </React.Fragment>
@@ -207,13 +204,12 @@ function TextInput({
         name={name} type={type} value={value} placeholder={placeholder}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:border-transparent ${
-          disabled
-            ? "bg-neutral-100 text-neutral-600 cursor-not-allowed border-neutral-200"
-            : error
+        className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:border-transparent ${disabled
+          ? "bg-neutral-100 text-neutral-600 cursor-not-allowed border-neutral-200"
+          : error
             ? "border-red-400 bg-red-50 focus:ring-red-400"
             : "border-neutral-200 bg-neutral-50 focus:bg-white focus:ring-primary-500"
-        }`}
+          }`}
       />
       {error && (
         <p className="mt-1 text-xs text-red-600 font-medium flex items-center gap-1">
@@ -235,11 +231,10 @@ function SelectInput({
       <select
         name={name} value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:border-transparent appearance-none ${
-          error
-            ? "border-red-400 bg-red-50 focus:ring-red-400"
-            : "border-neutral-200 bg-neutral-50 focus:bg-white focus:ring-primary-500"
-        }`}
+        className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:border-transparent appearance-none ${error
+          ? "border-red-400 bg-red-50 focus:ring-red-400"
+          : "border-neutral-200 bg-neutral-50 focus:bg-white focus:ring-primary-500"
+          }`}
       >
         <option value="">{placeholder}</option>
         {options.map((o) => (
@@ -273,46 +268,47 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function RegistrationPage() {
-  const [step, setStep]            = useState(0);
-  const [loading, setLoading]      = useState(false);
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-  const [errors, setErrors]        = useState<string[]>([]);
-  const [apiError, setApiError]    = useState<string | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Step 1
-  const [appType, setAppType]      = useState<ApplicationType>("New Recognition");
-  const [profile, setProfile]      = useState<ProfilePrefill | null>(null);
+  const [appType, setAppType] = useState<ApplicationType>("New Recognition");
+  const [profile, setProfile] = useState<ProfilePrefill | null>(null);
 
   // Step 2 — New Recognition
-  const [lowestClass, setLowestClass]     = useState("");
-  const [highestClass, setHighestClass]   = useState("");
-  const [boardAffil, setBoardAffil]       = useState("");
-  const [academicYear, setAcademicYear]   = useState("");
+  const [lowestClass, setLowestClass] = useState("");
+  const [highestClass, setHighestClass] = useState("");
+  const [boardAffil, setBoardAffil] = useState("");
+  const [academicYear, setAcademicYear] = useState("");
 
   // Step 2 — Renewal
-  const [recNumber, setRecNumber]         = useState("");
-  const [recValidity, setRecValidity]     = useState("");
-  const [hasChanges, setHasChanges]       = useState("");
+  const [recNumber, setRecNumber] = useState("");
+  const [recValidity, setRecValidity] = useState("");
+  const [hasChanges, setHasChanges] = useState("");
 
   // Step 2 — Upgradation
-  const [upgradeTo, setUpgradeTo]         = useState("");
+  const [upgradeTo, setUpgradeTo] = useState("");
   const [upgradeReason, setUpgradeReason] = useState("");
 
   // Step 3
-  const [uploadedDocs, setUploadedDocs]   = useState<UploadedDoc[]>([]);
-  const [uploading, setUploading]         = useState<Record<string, boolean>>({});
-  const [uploadErrors, setUploadErrors]   = useState<Record<string, string>>({});
+  const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
+  const [uploading, setUploading] = useState<Record<string, boolean>>({});
+  const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
 
   // Step 4
   const [signatoryName, setSignatoryName] = useState("");
-  const [designation, setDesignation]     = useState("");
-  const [declared, setDeclared]           = useState(false);
+  const [designation, setDesignation] = useState("");
+  const [declared, setDeclared] = useState(false);
 
   // Submission result
-  const [submitted, setSubmitted]         = useState(false);
-  const [pdfUrl, setPdfUrl]               = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
-
+  const [showPdf, setShowPdf] = useState(false);
+  const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   // ── On mount: load status + prefill ─────────────────────────────────────
   useEffect(() => {
     (async () => {
@@ -355,7 +351,7 @@ export default function RegistrationPage() {
         setPageLoading(false);
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDocuments = useCallback(async () => {
@@ -383,17 +379,17 @@ export default function RegistrationPage() {
   function validateStep2(): string[] {
     const e: string[] = [];
     if (appType === "New Recognition") {
-      if (!lowestClass)  e.push("Lowest class is required.");
+      if (!lowestClass) e.push("Lowest class is required.");
       if (!highestClass) e.push("Highest class is required.");
-      if (!boardAffil)   e.push("Board affiliation is required.");
+      if (!boardAffil) e.push("Board affiliation is required.");
       if (!academicYear) e.push("Academic year is required.");
     } else if (appType === "Renewal") {
-      if (!recNumber)   e.push("Recognition number is required.");
+      if (!recNumber) e.push("Recognition number is required.");
       if (!recValidity) e.push("Recognition validity date is required.");
-      if (!hasChanges)  e.push("Indicate whether any changes have been made.");
+      if (!hasChanges) e.push("Indicate whether any changes have been made.");
     } else {
-      if (!upgradeTo)                        e.push("Select the level to upgrade to.");
-      if (upgradeReason.trim().length < 10)  e.push("Provide a reason for upgradation (min 10 characters).");
+      if (!upgradeTo) e.push("Select the level to upgrade to.");
+      if (upgradeReason.trim().length < 10) e.push("Provide a reason for upgradation (min 10 characters).");
     }
     return e;
   }
@@ -413,8 +409,8 @@ export default function RegistrationPage() {
   function validateStep4(): string[] {
     const e: string[] = [];
     if (!signatoryName.trim()) e.push("Authorised signatory name is required.");
-    if (!designation.trim())   e.push("Designation is required.");
-    if (!declared)             e.push("You must accept the declaration.");
+    if (!designation.trim()) e.push("Designation is required.");
+    if (!declared) e.push("You must accept the declaration.");
     return e;
   }
 
@@ -438,20 +434,20 @@ export default function RegistrationPage() {
     let payload: Record<string, string> = {};
     if (appType === "New Recognition") {
       payload = {
-        lowest_class:      lowestClass,
-        highest_class:     highestClass,
+        lowest_class: lowestClass,
+        highest_class: highestClass,
         board_affiliation: boardAffil,
-        academic_year:     academicYear,
+        academic_year: academicYear,
       };
     } else if (appType === "Renewal") {
       payload = {
-        recognition_number:   recNumber,
+        recognition_number: recNumber,
         recognition_validity: recValidity,
-        has_changes:          hasChanges,
+        has_changes: hasChanges,
       };
     } else {
       payload = {
-        upgrade_to:     upgradeTo,
+        upgrade_to: upgradeTo,
         upgrade_reason: upgradeReason,
       };
     }
@@ -633,35 +629,61 @@ export default function RegistrationPage() {
   }
 
   // ── Submitted state ───────────────────────────────────────────────────────
+
   if (submitted) {
     return (
       <DashboardLayout>
         <div className="max-w-2xl mx-auto mt-10">
           <div className="bg-white rounded-3xl shadow-lg border border-neutral-100 p-10 text-center space-y-6">
+
+            {/* SUCCESS ICON */}
             <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
               <FiCheckCircle className="text-emerald-600" size={40} />
             </div>
+
+            {/* TITLE */}
             <div>
-              <h2 className="text-2xl font-bold text-neutral-900">Application Submitted!</h2>
+              <h2 className="text-2xl font-bold text-neutral-900">
+                Application Submitted!
+              </h2>
+
               {applicationId && (
                 <p className="text-sm text-neutral-500 mt-2">
-                  Application ID: <span className="font-mono font-bold text-primary-700">{applicationId}</span>
+                  Application ID:{" "}
+                  <span className="font-mono font-bold text-primary-700">
+                    {applicationId}
+                  </span>
                 </p>
               )}
+
               <p className="text-sm text-neutral-500 mt-1">
                 You will receive updates via the Notifications section.
               </p>
             </div>
 
+            {/* BUTTONS */}
             {pdfUrl ? (
-              <a
-                href={pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 px-8 py-3 bg-primary-600 text-white rounded-2xl font-semibold hover:bg-primary-700 transition-all shadow-lg shadow-primary-600/20"
-              >
-                <FiDownload size={18} /> Download Application PDF
-              </a>
+              <div className="flex gap-4 justify-center flex-wrap">
+
+                {/* DOWNLOAD */}
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700"
+                >
+                  <FiDownload size={18} /> Download PDF
+                </a>
+
+                {/* VIEW */}
+                <button
+                  onClick={() => setShowPdf(true)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-800 rounded-xl font-semibold hover:bg-gray-200"
+                >
+                  <FiEye size={18} /> View PDF
+                </button>
+
+              </div>
             ) : (
               <button
                 onClick={async () => {
@@ -670,15 +692,39 @@ export default function RegistrationPage() {
                   });
                   if (res.ok) {
                     const data = await res.json();
-                    if (data.pdf_url) window.open(data.pdf_url, "_blank");
+                    if (data.pdf_url) setShowPdf(true);
                   }
                 }}
                 className="inline-flex items-center gap-3 px-8 py-3 bg-primary-600 text-white rounded-2xl font-semibold hover:bg-primary-700 transition-all shadow-lg shadow-primary-600/20"
               >
-                <FiDownload size={18} /> Download Application PDF
+                <FiDownload size={18} /> View Application PDF
               </button>
             )}
 
+            {/* PDF VIEWER */}
+            {showPdf && pdfUrl && (
+              <div className="mt-6 border rounded-2xl overflow-hidden shadow-lg">
+
+                <div className="flex justify-between items-center p-3 bg-gray-100">
+                  <p className="text-sm font-medium">Application Preview</p>
+                  <button
+                    onClick={() => setShowPdf(false)}
+                    className="text-red-500 text-sm font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <iframe
+                  src={`https://docs.google.com/gview?url=${pdfUrl}&embedded=true`}
+                  className="w-full h-[600px]"
+                  title="PDF Viewer"
+                />
+
+              </div>
+            )}
+
+            {/* INFO BOX */}
             <div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-800 text-left">
               <p className="font-bold mb-1">📋 What happens next?</p>
               <ol className="list-decimal list-inside space-y-1">
@@ -687,6 +733,7 @@ export default function RegistrationPage() {
                 <li>On successful inspection, your Recognition Certificate will be issued.</li>
               </ol>
             </div>
+
           </div>
         </div>
       </DashboardLayout>
@@ -718,11 +765,10 @@ export default function RegistrationPage() {
                 setStep(0);
                 setErrors([]);
               }}
-              className={`w-full text-sm font-semibold border-2 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                step > 0
-                  ? "bg-neutral-100 text-neutral-600 border-neutral-200 cursor-not-allowed"
-                  : "bg-primary-50 text-primary-700 border-primary-200"
-              }`}
+              className={`w-full text-sm font-semibold border-2 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 ${step > 0
+                ? "bg-neutral-100 text-neutral-600 border-neutral-200 cursor-not-allowed"
+                : "bg-primary-50 text-primary-700 border-primary-200"
+                }`}
             >
               <option value="New Recognition">New Recognition</option>
               <option value="Renewal">Renewal of Recognition</option>
@@ -775,12 +821,12 @@ export default function RegistrationPage() {
 
             {profile ? (
               <div className="grid sm:grid-cols-2 gap-x-6 gap-y-4">
-                <ReadOnlyField label="School Name"        value={profile.school_name}     />
-                <ReadOnlyField label="UDISE Code"         value={profile.udise_number}    />
-                <ReadOnlyField label="School Type"        value={profile.school_type}     />
-                <ReadOnlyField label="School Category"    value={profile.school_category} />
-                <ReadOnlyField label="Current Offerings"  value={`Class ${profile.lowest_class} to ${profile.highest_class}`} />
-                <ReadOnlyField label="District"           value={profile.district}        />
+                <ReadOnlyField label="School Name" value={profile.school_name} />
+                <ReadOnlyField label="UDISE Code" value={profile.udise_number} />
+                <ReadOnlyField label="School Type" value={profile.school_type} />
+                <ReadOnlyField label="School Category" value={profile.school_category} />
+                <ReadOnlyField label="Current Offerings" value={`Class ${profile.lowest_class} to ${profile.highest_class}`} />
+                <ReadOnlyField label="District" value={profile.district} />
               </div>
             ) : (
               <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-center">
@@ -807,7 +853,7 @@ export default function RegistrationPage() {
                       value={lowestClass}
                       onChange={setLowestClass}
                       options={[
-                        "Nursery","LKG","UKG","1","2","3","4","5","6","7","8","9","10","11","12"
+                        "Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"
                       ].map((v) => ({ value: v, label: v.startsWith("N") || v.startsWith("L") || v.startsWith("U") ? v : `Class ${v}` }))}
                       error={errors.find((e) => e.toLowerCase().includes("lowest"))}
                     />
@@ -819,7 +865,7 @@ export default function RegistrationPage() {
                       value={highestClass}
                       onChange={setHighestClass}
                       options={[
-                        "1","2","3","4","5","6","7","8","9","10","11","12"
+                        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"
                       ].map((v) => ({ value: v, label: `Class ${v}` }))}
                       error={errors.find((e) => e.toLowerCase().includes("highest"))}
                     />
@@ -833,10 +879,10 @@ export default function RegistrationPage() {
                     onChange={setBoardAffil}
                     options={[
                       { value: "State Board", label: "State Board" },
-                      { value: "CBSE",        label: "CBSE"        },
-                      { value: "ICSE",        label: "ICSE"        },
-                      { value: "IB",          label: "IB"          },
-                      { value: "Other",       label: "Other"       },
+                      { value: "CBSE", label: "CBSE" },
+                      { value: "ICSE", label: "ICSE" },
+                      { value: "IB", label: "IB" },
+                      { value: "Other", label: "Other" },
                     ]}
                     error={errors.find((e) => e.toLowerCase().includes("board"))}
                   />
@@ -891,7 +937,7 @@ export default function RegistrationPage() {
                     onChange={setHasChanges}
                     options={[
                       { value: "No changes (Same as previous)", label: "No changes (Same as previous)" },
-                      { value: "Yes, changes have been made",   label: "Yes, changes have been made"   },
+                      { value: "Yes, changes have been made", label: "Yes, changes have been made" },
                     ]}
                     error={errors.find((e) => e.toLowerCase().includes("changes"))}
                   />
@@ -912,10 +958,10 @@ export default function RegistrationPage() {
                     value={upgradeTo}
                     onChange={setUpgradeTo}
                     options={[
-                      { value: "Class 9 to 10 (Secondary)",              label: "Class 9 to 10 (Secondary)"              },
-                      { value: "Class 11 to 12 (Higher Secondary)",       label: "Class 11 to 12 (Higher Secondary)"       },
-                      { value: "Class 1 to 10 (Primary to Secondary)",    label: "Class 1 to 10 (Primary to Secondary)"    },
-                      { value: "Class 1 to 12 (Primary to Higher Sec.)",  label: "Class 1 to 12 (Primary to Higher Sec.)"  },
+                      { value: "Class 9 to 10 (Secondary)", label: "Class 9 to 10 (Secondary)" },
+                      { value: "Class 11 to 12 (Higher Secondary)", label: "Class 11 to 12 (Higher Secondary)" },
+                      { value: "Class 1 to 10 (Primary to Secondary)", label: "Class 1 to 10 (Primary to Secondary)" },
+                      { value: "Class 1 to 12 (Primary to Higher Sec.)", label: "Class 1 to 12 (Primary to Higher Sec.)" },
                     ]}
                     error={errors.find((e) => e.toLowerCase().includes("upgrade to"))}
                   />
@@ -927,11 +973,10 @@ export default function RegistrationPage() {
                     onChange={(e) => setUpgradeReason(e.target.value)}
                     rows={3}
                     placeholder="e.g. Meeting growing local community demand for secondary education..."
-                    className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:border-transparent resize-none ${
-                      errors.find((e) => e.toLowerCase().includes("reason"))
-                        ? "border-red-400 bg-red-50 focus:ring-red-400"
-                        : "border-neutral-200 bg-neutral-50 focus:bg-white focus:ring-primary-500"
-                    }`}
+                    className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:border-transparent resize-none ${errors.find((e) => e.toLowerCase().includes("reason"))
+                      ? "border-red-400 bg-red-50 focus:ring-red-400"
+                      : "border-neutral-200 bg-neutral-50 focus:bg-white focus:ring-primary-500"
+                      }`}
                   />
                   {errors.find((e) => e.toLowerCase().includes("reason")) && (
                     <p className="mt-1 text-xs text-red-600 font-medium">
@@ -965,20 +1010,18 @@ export default function RegistrationPage() {
                 return (
                   <div
                     key={req.type}
-                    className={`rounded-2xl border p-5 transition-all ${
-                      uploaded
-                        ? "border-emerald-200 bg-emerald-50"
-                        : uploadErr
+                    className={`rounded-2xl border p-5 transition-all ${uploaded
+                      ? "border-emerald-200 bg-emerald-50"
+                      : uploadErr
                         ? "border-red-200 bg-red-50"
                         : "border-neutral-200 bg-neutral-50"
-                    }`}
+                      }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-start gap-3">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                            uploaded ? "bg-emerald-100" : "bg-neutral-200"
-                          }`}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${uploaded ? "bg-emerald-100" : "bg-neutral-200"
+                            }`}
                         >
                           {uploaded ? (
                             <FiCheckCircle className="text-emerald-600" size={16} />
@@ -1006,14 +1049,17 @@ export default function RegistrationPage() {
                       <div className="flex items-center gap-2 shrink-0">
                         {/* View uploaded doc */}
                         {uploaded && (
-                          <a
-                            href={uploaded.download_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-300 text-emerald-700 rounded-lg text-xs font-semibold hover:bg-emerald-50 transition-colors"
+                          <button
+                            onClick={() => {
+                              const fixedUrl = uploaded.download_url.replace(
+                                "/upload/",
+                                "/upload/fl_inline/"
+                              );
+                              setDocPreviewUrl(fixedUrl);
+                            }}
                           >
-                            <FiEye size={12} /> View
-                          </a>
+                            <FiEye /> View
+                          </button>
                         )}
 
                         {/* Delete uploaded doc */}
@@ -1028,11 +1074,10 @@ export default function RegistrationPage() {
 
                         {/* Upload button */}
                         <label
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-                            isUploading
-                              ? "bg-neutral-200 text-neutral-500 cursor-not-allowed"
-                              : "bg-primary-600 text-white hover:bg-primary-700 shadow-sm"
-                          }`}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all ${isUploading
+                            ? "bg-neutral-200 text-neutral-500 cursor-not-allowed"
+                            : "bg-primary-600 text-white hover:bg-primary-700 shadow-sm"
+                            }`}
                         >
                           {isUploading ? (
                             <>
@@ -1073,6 +1118,24 @@ export default function RegistrationPage() {
               </div>
             )}
           </div>
+          {docPreviewUrl && (
+            <div className="mt-6 border rounded-2xl overflow-hidden shadow-lg">
+              <div className="flex justify-between items-center p-3 bg-gray-100">
+                <p className="text-sm font-medium">Document Preview</p>
+                <button
+                  onClick={() => setDocPreviewUrl(null)}
+                  className="text-red-500 text-sm font-semibold"
+                >
+                  Close
+                </button>
+              </div>
+
+              <iframe
+                src={`https://docs.google.com/gview?url=${docPreviewUrl}&embedded=true`}
+                className="w-full h-[600px]"
+              />
+            </div>
+          )}
 
           {/* ── Step 4: Final Declaration ─────────────────────────────────────── */}
           <div className={`flex-1 ${step !== 3 ? "hidden" : ""}`}>
@@ -1119,13 +1182,12 @@ export default function RegistrationPage() {
             </div>
 
             <label
-              className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer border transition-all ${
-                declared
-                  ? "bg-primary-50 border-primary-300"
-                  : errors.find((e) => e.toLowerCase().includes("declaration"))
+              className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer border transition-all ${declared
+                ? "bg-primary-50 border-primary-300"
+                : errors.find((e) => e.toLowerCase().includes("declaration"))
                   ? "bg-red-50 border-red-300"
                   : "bg-neutral-50 border-neutral-200 hover:bg-primary-50/50 hover:border-primary-200"
-              }`}
+                }`}
             >
               <input
                 type="checkbox"

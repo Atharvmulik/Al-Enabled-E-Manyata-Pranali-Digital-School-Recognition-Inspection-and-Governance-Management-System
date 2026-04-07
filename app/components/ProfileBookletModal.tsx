@@ -147,6 +147,7 @@ export default function ProfileBookletModal({
 
     const sectionItems = getSectionData(activeSection);
 
+    
     return (
         <div className={cn(
             "fixed inset-0 z-[100] flex bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200",
