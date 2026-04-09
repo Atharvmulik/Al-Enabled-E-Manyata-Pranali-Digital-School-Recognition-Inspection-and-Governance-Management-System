@@ -2,18 +2,17 @@
 
 import React, { useEffect, useState } from "react";
 import {
-    Cpu,
-    Zap,
-    Activity,
-    AlertTriangle,
-    BarChart,
     X,
     Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { API_BASE_URL } from "@/lib/api";
 
 // ─── Types ─────────────────────────────────────────
+
+type School = {
+    school_id: string;
+    school_name: string;
+};
 
 type AIReport = {
     school: string;
@@ -24,41 +23,34 @@ type AIReport = {
     severity: string;
 };
 
-// ─── Dummy Input (TEST DATA) ───────────────────────
-
-const dummyInput = {
-    TOTAL_STUDENTS: 500,
-    TOTAL_TEACHERS: 20,
-    total_boys_toilet: 5,
-    total_boys_func_toilet: 4,
-    total_girls_toilet: 5,
-    total_girls_func_toilet: 4,
-    total_class_rooms: 15,
-    classrooms_in_good_condition: 10,
-    internet: 1,
-    comp_ict_lab_yn: 0,
-    ict_lab_yn: 1,
-    laptop: 5,
-    desktop: 10,
-    digiboard: 1,
-    projector: 1,
-};
-
 // ─── Component ─────────────────────────────────────
 
 export default function AIMonitoringPage() {
+    const [schools, setSchools] = useState<School[]>([]);
+    const [selectedSchoolId, setSelectedSchoolId] = useState<string>("");
+    const [selectedSchoolName, setSelectedSchoolName] = useState<string>("");
+
     const [reports, setReports] = useState<AIReport[]>([]);
     const [selectedSchool, setSelectedSchool] = useState<AIReport | null>(null);
     const [loading, setLoading] = useState(false);
 
-    // ─── Fetch AI Prediction ────────────────────────
-    const fetchPrediction = async () => {
+    // ─── Fetch Schools List ─────────────────────────
+    const fetchSchools = async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/predict/schools`);
+            const data = await res.json();
+            setSchools(data.schools || []);
+        } catch (err) {
+            console.error("Error fetching schools:", err);
+        }
+    };
+
+    // ─── Fetch Prediction ───────────────────────────
+    const fetchPrediction = async (schoolId: string, schoolName: string) => {
+        if (!schoolId) return;
+
         setLoading(true);
         try {
-            const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-            const schoolId = user.user_id; // 🔥 IMPORTANT
-
             const res = await fetch(`${API_BASE_URL}/predict/from-db/${schoolId}`);
 
             if (!res.ok) throw new Error("API failed");
@@ -67,7 +59,7 @@ export default function AIMonitoringPage() {
 
             setReports([
                 {
-                    school: "Your School",
+                    school: schoolName,
                     infraScore: data.infraScore,
                     qualityCategory: data.qualityCategory,
                     aiStatus: data.aiStatus,
@@ -81,28 +73,66 @@ export default function AIMonitoringPage() {
             setLoading(false);
         }
     };
-    // ─── Call on load ───────────────────────────────
+
+    const fetchAllPredictions = async () => {
+    setLoading(true);
+    try {
+        const res = await fetch(`${API_BASE_URL}/predict/all`);
+        const data = await res.json();
+
+        setReports(data.reports || []);
+    } catch (err) {
+        console.error(err);
+    } finally {
+        setLoading(false);
+    }
+};
+
+   const handleSchoolChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const schoolId = e.target.value;
+    const schoolName = e.target.options[e.target.selectedIndex].text;
+
+    setSelectedSchoolId(schoolId);
+    setSelectedSchoolName(schoolName);
+
+    if (!schoolId) {
+        fetchAllPredictions(); // 🔥 reset to all
+    } else {
+        fetchPrediction(schoolId, schoolName);
+    }
+};
+    // ─── Load Schools on Mount ──────────────────────
     useEffect(() => {
-        fetchPrediction();
-    }, []);
+    fetchSchools();
+    fetchAllPredictions(); // 🔥 load all on page load
+}, []);
 
     return (
         <div className="space-y-8">
+
             {/* HEADER */}
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold">AI Prediction Monitoring</h1>
                     <p className="text-sm text-gray-500">
-                        Real-time AI-based infrastructure analysis
+                        Select a school to analyze infrastructure
                     </p>
                 </div>
 
-                <button
-                    onClick={fetchPrediction}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+                {/* 🔥 DROPDOWN */}
+                <select
+                    value={selectedSchoolId}
+                    onChange={handleSchoolChange}
+                    className="px-4 py-2 border rounded-lg text-sm"
                 >
-                    Refresh
-                </button>
+                    <option value="">All Schools</option>
+                    <option value="">Select School</option>
+                    {schools.map((s) => (
+                        <option key={s.school_id} value={s.school_id}>
+                            {s.school_name}
+                        </option>
+                    ))}
+                </select>
             </div>
 
             {/* LOADING */}
@@ -113,10 +143,10 @@ export default function AIMonitoringPage() {
             )}
 
             {/* TABLE */}
-            {!loading && (
+            {!loading && reports.length > 0 && (
                 <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
                     <div className="p-6 border-b">
-                        <h3 className="font-bold">AI Infrastructure Assessments</h3>
+                        <h3 className="font-bold">AI Infrastructure Assessment</h3>
                     </div>
 
                     <table className="w-full text-left">

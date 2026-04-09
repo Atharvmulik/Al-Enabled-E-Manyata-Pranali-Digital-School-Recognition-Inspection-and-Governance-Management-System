@@ -13,6 +13,7 @@ import {
 } from "react-icons/fi";
 import { API_BASE_URL } from "@/lib/api";
 
+
 // ─── API helpers are defined inside the component to use token from state ─────
 
 const steps = [
@@ -624,6 +625,8 @@ export default function ProfilePage() {
     const [classification, setClassification] = useState("");
     const [applicationType, setApplicationType] = useState("New Recognition");
     const [schoolCategory, setSchoolCategory] = useState("");
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [pdfUrl, setPdfUrl] = useState("");
 
     // Section 3: Staff State
     const [staffCounts, setStaffCounts] = useState<StaffCountRow>({
@@ -798,7 +801,7 @@ export default function ProfilePage() {
 
     // ── Step 3: Fetch existing profile data and pre-fill form ─────────────────
     useEffect(() => {
-        if (!isAuthReady || !token || token === "null" || token === "undefined") return;
+        if (!isAuthReady || !token || isSubmitted) return;
 
         const fetchStepData = async () => {
             try {
@@ -839,7 +842,7 @@ export default function ProfilePage() {
 
 
     useEffect(() => {
-        if (!token || !isAuthReady) return;
+        if (!token || !isAuthReady || isSubmitted) return;
 
         const fetchStatus = async () => {
             try {
@@ -850,6 +853,13 @@ export default function ProfilePage() {
                 if (!res.ok) return;
 
                 const data = await res.json();
+
+                // ✅ ADD THIS (MOST IMPORTANT)
+                if (data.submitted) {
+                    setIsSubmitted(true);
+                    setPdfUrl(`${API_BASE_URL}/profile/pdf`);
+                    return; // 🚨 STOP further step loading
+                }
 
                 if (data.completed_steps?.length > 0) {
                     setCurrentStep(prev => {
@@ -1590,6 +1600,72 @@ export default function ProfilePage() {
         });
     };
 
+    // Add after apiDelete function
+
+    const apiPost = async (path: string, body: unknown): Promise<void> => {
+        const res = await fetch(`${API_BASE_URL}${path}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeader()
+            },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            throw new Error(err?.detail ?? `Error ${res.status}`);
+        }
+    };
+
+    // Document upload function
+    const uploadDocument = async (documentType: string, file: File) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("document_type", documentType);
+
+        const res = await fetch(`${API_BASE_URL}/profile/upload-document`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || "Upload failed");
+        }
+
+        const data = await res.json();
+        return data;
+    };
+
+    // Also add handleFileUpload function
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, documentType: string) => {
+        const file = e.target.files?.[0];
+        if (!file || !token) return;
+
+        setUploading(true);
+        try {
+            await uploadDocument(documentType, file);
+            setUploadedDocs(prev => ({ ...prev, [documentType]: true }));
+
+            // Also update the corresponding state variable
+            if (documentType === "transport_fitness_certificate") {
+                setTransFitnessCert("Uploaded");
+            } else if (documentType === "transport_permit") {
+                setTransPermit("Uploaded");
+            }
+
+            alert(`${documentType} uploaded successfully`);
+        } catch (err) {
+            console.error("Upload error:", err);
+            alert(err instanceof Error ? err.message : "Upload failed");
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const verifyUdise = async () => {
         if (!udiseNumber || !token) return;
 
@@ -1888,13 +1964,13 @@ export default function ProfilePage() {
     const [activeStaffTab, setActiveStaffTab] = useState<"teaching" | "non-teaching" | "vocational">("teaching");
 
     const [curriculumPrimary, setCurriculumPrimary] = useState("");
-const [curriculumUpperPrimary, setCurriculumUpperPrimary] = useState("");
-const [isMinority, setIsMinority] = useState("");
-const [minorityCommunity, setMinorityCommunity] = useState("");
-const [isRTE, setIsRTE] = useState("");
-const [isVocational, setIsVocational] = useState("");
-const [fundingSource, setFundingSource] = useState("");
-const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
+    const [curriculumUpperPrimary, setCurriculumUpperPrimary] = useState("");
+    const [isMinority, setIsMinority] = useState("");
+    const [minorityCommunity, setMinorityCommunity] = useState("");
+    const [isRTE, setIsRTE] = useState("");
+    const [isVocational, setIsVocational] = useState("");
+    const [fundingSource, setFundingSource] = useState("");
+    const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
     const [vocationalRows, setVocationalRows] = useState<VocationalRow[]>(
         Array(8).fill(null).map(() => ({
             grade: "",
@@ -2221,6 +2297,7 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
     const [hostelHigherSecondaryGirls, setHostelHigherSecondaryGirls] = useState("");
 
 
+
     const isResidentialCapacity =
         hostelPrimaryAvailability === "1-Yes" ||
         hostelUpperPrimaryAvailability === "1-Yes" ||
@@ -2340,34 +2417,16 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
     const [transAutoSafety, setTransAutoSafety] = useState("");
     const [transAutoParentInstruction, setTransAutoParentInstruction] = useState("");
     const [transAutoRegistered, setTransAutoRegistered] = useState("");
+
+    // Transportation document upload state
+    const [transFitnessCert, setTransFitnessCert] = useState("");
+    const [transPermit, setTransPermit] = useState("");
+    const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({});
     const [fitnessFile, setFitnessFile] = useState<File | null>(null);
     const [permitFile, setPermitFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
 
-    const [uploadedDocs, setUploadedDocs] = useState<Record<string, { url: string; name: string; id: string }>>({});
 
-    const handleFileUpload = async (
-        e: React.ChangeEvent<HTMLInputElement>,
-        documentType: string
-    ) => {
-        const file = e.target.files?.[0];
-        if (!file || !token) return;
-
-        try {
-            console.log("Uploading:", documentType);
-
-            await uploadDocument(documentType, file);
-
-            setUploadedDocs(prev => ({
-                ...prev,
-                [documentType]: true,
-            }));
-
-        } catch (err) {
-            console.error("UPLOAD ERROR:", err);
-            alert(err instanceof Error ? err.message : "Upload failed");
-        }
-    };
     const progress = Math.round(((currentStep + 1) / steps.length) * 100);
 
     // ─── API state ───────────────────────────────────────────────────────────
@@ -2720,31 +2779,35 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
     });
 
     const saveStaff = async () => {
-        // Save staff summary counts
+        // Save staff summary counts - MATCHING BACKEND EXPECTATION
         await apiPut(`/profile/staff/summary`, {
             counts: {
-                regular: staffCounts.regular,
-                non_regular: staffCounts.nonRegular,
-                non_teaching: staffCounts.nonTeaching,
-                vocational: staffCounts.vocational,
+                regular: staffCounts.regular || "0",
+                non_regular: staffCounts.nonRegular || "0",
+                non_teaching: staffCounts.nonTeaching || "0",
+                vocational: staffCounts.vocational || "0",
             },
             required: {
-                pre_primary: staffRequired.prePrimary,
-                primary: staffRequired.primary,
-                upper_primary: staffRequired.upperPrimary,
-                secondary: staffRequired.secondary,
-                higher_secondary: staffRequired.higherSecondary,
+                pre_primary: staffRequired.prePrimary || "0",
+                primary: staffRequired.primary || "0",
+                upper_primary: staffRequired.upperPrimary || "0",
+                secondary: staffRequired.secondary || "0",
+                higher_secondary: staffRequired.higherSecondary || "0",
             },
         });
-        // Sync teachers: add each one (server clears + repopulates on save)
+
+        // Sync teachers: add/update each one
         for (const t of teachers) {
             if (t.id && !t.id.match(/^[a-z0-9]{9}$/)) {
-                // Backend-assigned id — update
+                // Existing teacher - update
                 await apiPut(`/profile/staff/teachers/${t.id}`, mapTeacher(t));
             } else {
+                // New teacher - create
                 await apiPost(`/profile/staff/teachers`, mapTeacher(t));
             }
         }
+
+        // Sync non-teaching staff
         for (const s of nonTeachingStaff) {
             if (s.id && !s.id.match(/^[a-z0-9]{9}$/)) {
                 await apiPut(`/profile/staff/non-teaching/${s.id}`, mapNonTeaching(s));
@@ -2752,6 +2815,8 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
                 await apiPost(`/profile/staff/non-teaching`, mapNonTeaching(s));
             }
         }
+
+        // Sync vocational staff
         for (const v of vocationalStaff) {
             if (v.id && !v.id.match(/^[a-z0-9]{9}$/)) {
                 await apiPut(`/profile/staff/vocational/${v.id}`, mapVocational(v));
@@ -2760,32 +2825,17 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
             }
         }
     };
-
-    const saveSafety = () => apiPut(`/profile/safety`, {
-        has_disaster_plan: hasDisasterPlan,
-        has_structural_audit: hasStructuralAudit,
-        has_non_structural_audit: hasNonStructuralAudit,
-        has_cctv: hasCCTV,
-        has_fire_extinguishers: hasFireExtinguishers,
-        has_nodal_teacher: hasNodalTeacher,
-        has_safety_training: hasSafetyTraining,
-        safety_training_date: safetyTrainingDate,
-        disaster_management_taught: disasterManagementTaught,
-        has_self_defence_grant: hasSelfDefenceGrant,
-        self_defence_upper_primary: selfDefenceUpperPrimary,
-        self_defence_secondary: selfDefenceSecondary,
-        self_defence_higher_secondary: selfDefenceHigherSecondary,
-        has_safety_display_board: hasSafetyDisplayBoard,
-        has_first_level_counselor: hasFirstLevelCounselor,
-        safety_audit_frequency: safetyAuditFrequency,
-    });
-
     const saveStudentCapacity = async () => {
-        await apiPut(`/profile/student-capacity/sections`, sectionConfigs.map(c => ({
+        // Save section configs - backend expects an array of config objects
+        const configsForApi = sectionConfigs.map(c => ({
             class_name: c.className,
             number_of_sections: c.numberOfSections,
             section_names: c.sectionNames,
-        })));
+        }));
+
+        await apiPut(`/profile/student-capacity/sections`, configsForApi);
+
+        // Save students
         for (const s of students) {
             if (s.id && !s.id.match(/^[a-z0-9]{9}$/)) {
                 await apiPut(`/profile/students/${s.id}`, mapStudent(s));
@@ -2794,7 +2844,6 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
             }
         }
     };
-
     const saveVocationalEducation = () => apiPut(`/profile/vocational-education`, {
         vocational_guest_lecturers: vocationalGuestLecturers,
         vocational_industry_visits: vocationalIndustryVisits,
@@ -2814,6 +2863,7 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
         })),
     });
     const saveTransport = async () => {
+        // Backend expects snake_case field names
         await apiPut("/profile/transport", {
             trans_vehicle_age: transVehicleAge,
             trans_speed_governor: transSpeedGovernor,
@@ -2823,6 +2873,24 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
             trans_auto_safety: transAutoSafety,
         });
     };
+    const saveSafety = () => apiPut(`/profile/safety`, {
+        has_disaster_plan: hasDisasterPlan,
+        has_structural_audit: hasStructuralAudit,
+        has_non_structural_audit: hasNonStructuralAudit,
+        has_cctv: hasCCTV,
+        has_fire_extinguishers: hasFireExtinguishers,
+        has_nodal_teacher: hasNodalTeacher,
+        has_safety_training: hasSafetyTraining,
+        safety_training_date: safetyTrainingDate,
+        disaster_management_taught: disasterManagementTaught,
+        has_self_defence_grant: hasSelfDefenceGrant,
+        self_defence_upper_primary: selfDefenceUpperPrimary,
+        self_defence_secondary: selfDefenceSecondary,
+        self_defence_higher_secondary: selfDefenceHigherSecondary,
+        has_safety_display_board: hasSafetyDisplayBoard,
+        has_first_level_counselor: hasFirstLevelCounselor,
+        safety_audit_frequency: safetyAuditFrequency,
+    });
 
     // ─── Step → save function map ─────────────────────────────────────────────
     const stepSaveFns: (() => Promise<void>)[] = [
@@ -2929,6 +2997,9 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
             if (!res.ok) {
                 // data is already parsed — use it directly
                 throw new Error(data?.detail || data?.message || "Submission failed");
+            }
+            if (res.ok) {
+                setIsSubmitted(true);
             }
 
             alert("Form submitted successfully ✅");
@@ -3043,19 +3114,6 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
     const authHeader = (): HeadersInit =>
         token ? { Authorization: `Bearer ${token}` } : {};
 
-
-
-    const apiPost = async (path: string, body: unknown): Promise<void> => {
-        const res = await fetch(`${API_BASE_URL}${path}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...authHeader() },
-            body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ detail: res.statusText }));
-            throw new Error(err?.detail ?? `Error ${res.status}`);
-        }
-    };
 
 
     const uploadDoc = async (file: File, type: string) => {
@@ -3417,6 +3475,85 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
         return errors;
     };
 
+    useEffect(() => {
+        if (!token || !isAuthReady) return;
+
+        const checkSubmission = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/profile/final-status`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) return;
+
+                const data = await res.json();
+
+                if (data.submitted) {
+                    setIsSubmitted(true);
+                    setPdfUrl(`${API_BASE_URL}/profile/pdf`);
+                }
+
+            } catch (err) {
+                console.error("Submission check error:", err);
+            }
+        };
+
+        checkSubmission();
+    }, [token, isAuthReady]);
+
+    const handleDownloadPDF = async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/profile/pdf`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!res.ok) {
+                alert("Failed to download PDF");
+                return;
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "profile.pdf";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+        } catch (err) {
+            console.error("Download error:", err);
+        }
+    };
+
+    const handleViewPDF = async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/profile/pdf`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!res.ok) {
+                alert("Failed to open PDF");
+                return;
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            window.open(url, "_blank");
+
+        } catch (err) {
+            console.error("View error:", err);
+        }
+    };
+
 
 
     // next is now handleNext (defined above with API save)
@@ -3437,6 +3574,56 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
         return <div>Please login</div>;
     }
 
+
+
+
+
+
+    if (isSubmitted) {
+        return (
+            <DashboardLayout>
+                <div className="flex justify-center items-center min-h-[80vh]">
+                    <div className="bg-white p-8 rounded-xl shadow-md text-center w-[500px]">
+
+                        <div className="text-green-500 text-5xl mb-4">✔</div>
+
+                        <h2 className="text-2xl font-semibold mb-2">
+                            Application Submitted!
+                        </h2>
+
+                        <p className="text-gray-600 mb-6">
+                            You will receive updates via Notifications.
+                        </p>
+
+                        <div className="flex justify-center gap-4 mb-6">
+
+                            <button
+                                onClick={handleDownloadPDF}
+                                className="bg-blue-600 text-white px-4 py-2 rounded"
+                            >
+                                Download PDF
+                            </button>
+
+                            <button
+                                onClick={handleViewPDF}
+                                className="bg-gray-200 px-4 py-2 rounded"
+                            >
+                                View PDF
+                            </button>
+
+                        </div>
+
+                        <button
+                            onClick={() => setIsSubmitted(false)}
+                            className="bg-yellow-500 text-white px-4 py-2 rounded"
+                        >
+                            Edit Application
+                        </button>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
     return (
         <DashboardLayout>
             <div className="mb-6">
@@ -8651,7 +8838,7 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
+                            {/* Fitness Certificate Upload */}
                             <div>
                                 <label className="block text-sm font-medium mb-1">
                                     Vehicle Fitness Certificate * <span className="text-xs text-neutral-400">(PDF/JPG/PNG, max 5MB)</span>
@@ -8659,18 +8846,18 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
                                 <input
                                     type="file"
                                     accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) setFitnessFile(file);
-                                    }} className="w-full border rounded px-3 py-2"
+                                    onChange={(e) => handleFileUpload(e, "transport_fitness_certificate")}
+                                    className="w-full border rounded px-3 py-2"
+                                    disabled={uploading}
                                 />
-                                {uploadedDocs?.fitness_certificate ? (
+                                {uploadedDocs?.transport_fitness_certificate ? (
                                     <p className="text-green-600 text-xs mt-1">✅ Uploaded successfully</p>
                                 ) : stepErrors[9]?.transFitnessCert ? (
                                     <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transFitnessCert}</p>
                                 ) : null}
                             </div>
 
+                            {/* Transport Permit Upload */}
                             <div>
                                 <label className="block text-sm font-medium mb-1">
                                     Transport Permit * <span className="text-xs text-neutral-400">(PDF/JPG/PNG, max 5MB)</span>
@@ -8678,10 +8865,9 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
                                 <input
                                     type="file"
                                     accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) setPermitFile(file);
-                                    }} className="w-full border rounded px-3 py-2"
+                                    onChange={(e) => handleFileUpload(e, "transport_permit")}
+                                    className="w-full border rounded px-3 py-2"
+                                    disabled={uploading}
                                 />
                                 {uploadedDocs?.transport_permit ? (
                                     <p className="text-green-600 text-xs mt-1">✅ Uploaded successfully</p>
@@ -8690,6 +8876,7 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
                                 ) : null}
                             </div>
 
+                            {/* Rest of the transport fields remain the same */}
                             <div>
                                 <label className="block text-sm font-medium mb-1">Vehicle Age (years)</label>
                                 <input
@@ -8777,7 +8964,6 @@ const [sanctionOrderNumber, setSanctionOrderNumber] = useState("");
                                     <option value="2-No">No</option>
                                 </select>
                             </div>
-
                         </div>
                     </div>
                 )}
@@ -8894,6 +9080,76 @@ function InputField({
     );
 }
 
+function SearchableMultiSelect({
+    label,
+    options,
+    selected,
+    onChange,
+    placeholder = "Search and select..."
+}: {
+    label: string;
+    options: string[];
+    selected: string[];
+    onChange: (items: string[]) => void;
+    placeholder?: string;
+}) {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [isOpen, setIsOpen] = useState(false);
+
+    const filteredOptions = options.filter(opt =>
+        opt.toLowerCase().includes(searchTerm.toLowerCase()) && !selected.includes(opt)
+    ).slice(0, 10);
+
+    return (
+        <div className="relative">
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">{label}</label>
+            <div className="min-h-[45px] p-2 rounded-xl border border-neutral-200 bg-neutral-50 flex flex-wrap gap-2 focus-within:ring-2 focus-within:ring-primary-500 focus-within:bg-white transition-all">
+                {selected.map(item => (
+                    <span key={item} className="flex items-center gap-1.5 px-2 py-1 bg-primary-100 text-primary-700 rounded-lg text-[11px] font-bold border border-primary-200">
+                        {item}
+                        <button
+                            type="button"
+                            onClick={() => onChange(selected.filter(i => i !== item))}
+                            className="hover:text-primary-900 text-sm"
+                        >
+                            ×
+                        </button>
+                    </span>
+                ))}
+                <input
+                    type="text"
+                    value={searchTerm}
+                    onFocus={() => setIsOpen(true)}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder={selected.length === 0 ? placeholder : ""}
+                    className="flex-1 bg-transparent border-none outline-none text-sm p-1 min-w-[120px]"
+                />
+            </div>
+            {isOpen && searchTerm && filteredOptions.length > 0 && (
+                <div className="absolute z-[100] w-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="max-h-60 overflow-y-auto">
+                        {filteredOptions.map(opt => (
+                            <button
+                                key={opt}
+                                type="button"
+                                onClick={() => {
+                                    onChange([...selected, opt]);
+                                    setSearchTerm("");
+                                    setIsOpen(false);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 border-b border-neutral-50 last:border-0 transition-colors"
+                            >
+                                {opt}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {isOpen && <div className="fixed inset-0 z-[90]" onClick={() => setIsOpen(false)}></div>}
+        </div>
+    );
+}
+
 function SelectField({
     label,
     options,
@@ -8958,74 +9214,3 @@ function UploadField({ label }: { label: string }) {
         </div>
     );
 }
-
-function SearchableMultiSelect({
-    label,
-    options,
-    selected,
-    onChange,
-    placeholder = "Search and select..."
-}: {
-    label: string;
-    options: string[];
-    selected: string[];
-    onChange: (items: string[]) => void;
-    placeholder?: string;
-}) {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [isOpen, setIsOpen] = useState(false);
-
-    const filteredOptions = options.filter(opt =>
-        opt.toLowerCase().includes(searchTerm.toLowerCase()) && !selected.includes(opt)
-    ).slice(0, 10);
-
-    return (
-        <div className="relative">
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">{label}</label>
-            <div className="min-h-[45px] p-2 rounded-xl border border-neutral-200 bg-neutral-50 flex flex-wrap gap-2 focus-within:ring-2 focus-within:ring-primary-500 focus-within:bg-white transition-all">
-                {selected.map(item => (
-                    <span key={item} className="flex items-center gap-1.5 px-2 py-1 bg-primary-100 text-primary-700 rounded-lg text-[11px] font-bold border border-primary-200">
-                        {item}
-                        <button type="button" onClick={() => onChange(selected.filter(i => i !== item))} className="hover:text-primary-900 text-sm">×</button>
-                    </span>
-                ))}
-                <input
-                    type="text"
-                    value={searchTerm}
-                    onFocus={() => setIsOpen(true)}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder={selected.length === 0 ? placeholder : ""}
-                    className="flex-1 bg-transparent border-none outline-none text-sm p-1 min-w-[120px]"
-                />
-            </div>
-            {isOpen && searchTerm && (
-                <div className="absolute z-[100] w-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                    {filteredOptions.length > 0 ? (
-                        <div className="max-h-60 overflow-y-auto">
-                            {filteredOptions.map(opt => (
-                                <button
-                                    key={opt}
-                                    type="button"
-                                    onClick={() => {
-                                        onChange([...selected, opt]);
-                                        setSearchTerm("");
-                                        setIsOpen(false);
-                                    }}
-                                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 border-b border-neutral-50 last:border-0 transition-colors"
-                                >
-                                    {opt}
-                                </button>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="px-4 py-3 text-sm text-neutral-400 italic">No results found</div>
-                    )}
-                </div>
-            )}
-            {isOpen && <div className="fixed inset-0 z-[90]" onClick={() => setIsOpen(false)}></div>}
-        </div>
-    );
-}
-
-
-
