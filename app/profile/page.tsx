@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import {
     FiChevronRight,
@@ -10,6 +10,8 @@ import {
     FiSave,
     FiSend,
     FiShield,
+    FiAlertCircle,
+    FiX,
 } from "react-icons/fi";
 import { API_BASE_URL } from "@/lib/api";
 
@@ -41,6 +43,27 @@ const STEP_API = [
     "/profile/vocational-education",
     "/profile/transport"   // ✅ was "/profile/transportation"
 ];
+
+const STEP_DOCUMENTS: Record<number, string[]> = {
+    0: ["registration_certificate", "trust_certificate"],
+    2: ["land_document", "noc_certificate", "building_approval"],
+    4: ["structural_stability_cert"],
+    6: ["fire_dept_certificate"],
+    9: ["transport_fitness_certificate", "transport_permit"],
+};
+
+const DOCUMENT_LABELS: Record<string, string> = {
+    registration_certificate: "Registration Certificate",
+    trust_certificate: "Trust/Society Certificate",
+    land_document: "Land Document / Lease Deed",
+    noc_certificate: "NOC Certificate",
+    building_approval: "Building Approval",
+    structural_stability_cert: "Structural Stability Certificate",
+    fire_dept_certificate: "Fire Department Certificate",
+    transport_fitness_certificate: "Vehicle Fitness Certificate",
+    transport_permit: "Transport Permit",
+    water_quality_test_report: "Water Quality Test Report",
+};
 
 
 const LANGUAGES = [
@@ -785,6 +808,16 @@ export default function ProfilePage() {
         currentYearAttendance: ""
     });
 
+    type DocumentType = {
+        id: string;
+        document_type: string;
+        file_url: string;
+        file_name: string;
+    };
+
+    const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({});
+    const [allDocuments, setAllDocuments] = useState<DocumentType[]>([]);
+    const [documents, setDocuments] = useState<DocumentType[]>([]);
 
     useEffect(() => {
         const raw = localStorage.getItem("user");
@@ -797,7 +830,48 @@ export default function ProfilePage() {
         setIsAuthReady(true);
     }, []);
 
+    // ✅ Fetch ALL documents from backend and build global uploadedDocs map
+    const fetchDocuments = async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/profile/documents`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
 
+            if (!res.ok) return;
+
+            const data = await res.json();
+            console.log("FETCH ALL DOCS:", data);
+
+            // Store ALL documents globally
+            setAllDocuments(data);
+
+            // Filter for current step display
+            const stepDocs = STEP_DOCUMENTS[currentStep] || [];
+            const filteredDocs = data.filter((doc: any) =>
+                stepDocs.includes(doc.document_type)
+            );
+            setDocuments(filteredDocs);
+
+            // Build uploadedDocs map from ALL documents (not just current step)
+            const uploadedMap: Record<string, boolean> = {};
+            data.forEach((doc: any) => {
+                if (doc.document_type) {
+                    uploadedMap[doc.document_type] = true;
+                }
+            });
+            setUploadedDocs(uploadedMap);
+
+        } catch (err) {
+            console.error("Doc fetch error:", err);
+        }
+    };
+
+    // Helper: get doc info for a specific document_type
+    const getDocByType = (docType: string) => {
+        return allDocuments.find((d: DocumentType) => d.document_type === docType);
+    };
 
     // ── Step 3: Fetch existing profile data and pre-fill form ─────────────────
     useEffect(() => {
@@ -836,8 +910,8 @@ export default function ProfilePage() {
                 console.error("❌ Step fetch error:", err);
             }
         };
-
         fetchStepData();
+        fetchDocuments();
     }, [currentStep, token, isAuthReady]);
 
 
@@ -1607,7 +1681,7 @@ export default function ProfilePage() {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                ...authHeader()
+                Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(body),
         });
@@ -1617,11 +1691,13 @@ export default function ProfilePage() {
         }
     };
 
-    // Document upload function
-    const uploadDocument = async (documentType: string, file: File) => {
+    // ✅ FIXED: Document upload function - sends file + document_type + step
+    const uploadDocument = async (file: File, documentType: string, step?: number) => {
+        console.log("Uploading:", documentType);
         const formData = new FormData();
         formData.append("file", file);
         formData.append("document_type", documentType);
+        formData.append("step", String(step ?? currentStep));
 
         const res = await fetch(`${API_BASE_URL}/profile/upload-document`, {
             method: "POST",
@@ -1632,32 +1708,53 @@ export default function ProfilePage() {
         });
 
         if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(errorText || "Upload failed");
+            const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+            throw new Error(err?.detail || "Upload failed");
         }
 
-        const data = await res.json();
-        return data;
+        // Refresh ALL documents after upload
+        await fetchDocuments();
     };
 
-    // Also add handleFileUpload function
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, documentType: string) => {
+    // ✅ FIXED: Replace document function
+    const handleReplace = async (docId: string, file: File) => {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(`${API_BASE_URL}/profile/replace-document/${docId}`, {
+            method: "PUT",
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: "Replace failed" }));
+            throw new Error(err?.detail || "Replace failed");
+        }
+
+        // Refresh ALL documents after replace
+        await fetchDocuments();
+    };
+
+    // ✅ FIXED: handleFileUpload for form-based uploads
+    const handleFileUpload = async (
+        e: React.ChangeEvent<HTMLInputElement>,
+        documentType: string
+    ) => {
         const file = e.target.files?.[0];
         if (!file || !token) return;
 
         setUploading(true);
         try {
-            await uploadDocument(documentType, file);
-            setUploadedDocs(prev => ({ ...prev, [documentType]: true }));
+            await uploadDocument(file, documentType);
 
-            // Also update the corresponding state variable
             if (documentType === "transport_fitness_certificate") {
                 setTransFitnessCert("Uploaded");
             } else if (documentType === "transport_permit") {
                 setTransPermit("Uploaded");
             }
-
-            alert(`${documentType} uploaded successfully`);
         } catch (err) {
             console.error("Upload error:", err);
             alert(err instanceof Error ? err.message : "Upload failed");
@@ -2421,10 +2518,10 @@ export default function ProfilePage() {
     // Transportation document upload state
     const [transFitnessCert, setTransFitnessCert] = useState("");
     const [transPermit, setTransPermit] = useState("");
-    const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({});
     const [fitnessFile, setFitnessFile] = useState<File | null>(null);
     const [permitFile, setPermitFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
 
 
     const progress = Math.round(((currentStep + 1) / steps.length) * 100);
@@ -2892,6 +2989,7 @@ export default function ProfilePage() {
         safety_audit_frequency: safetyAuditFrequency,
     });
 
+
     // ─── Step → save function map ─────────────────────────────────────────────
     const stepSaveFns: (() => Promise<void>)[] = [
         saveBasicDetails,          // 0
@@ -2936,6 +3034,7 @@ export default function ProfilePage() {
 
         if (Object.keys(errs).length > 0) {
             setStepErrors(prev => ({ ...prev, [currentStep]: errs }));
+            setShowErrorModal(true);
             return;  // ← return immediately, don't try to save
         }
 
@@ -2977,6 +3076,7 @@ export default function ProfilePage() {
 
         if (hasError) {
             setCurrentStep(firstErrorStep);
+            setShowErrorModal(true);
             window.scrollTo({ top: 0, behavior: "smooth" });
             return;
         }
@@ -3116,32 +3216,7 @@ export default function ProfilePage() {
 
 
 
-    const uploadDoc = async (file: File, type: string) => {
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("document_type", type);
-
-            const res = await fetch(`${API_BASE_URL}/profile/upload-document`, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const err = await res.text();
-                console.error("UPLOAD FAILED:", err);
-                throw new Error(err);
-            }
-
-            console.log("UPLOAD SUCCESS");
-        } catch (err) {
-            console.error("UPLOAD ERROR:", err);
-            throw err;
-        }
-    };
+    // uploadDoc is now handled by uploadDocument above (which includes step param)
 
     // ─── UDISE verification ── calls backend with token from state ────────────
     // The backend compares the entered UDISE with the logged-in user's own
@@ -3356,6 +3431,14 @@ export default function ProfilePage() {
             if (!highestClass) errors.highestClass = "Select highest class";
 
             if (!schoolCategory) errors.schoolCategory = "Select category";
+
+            // Document validations using document_type keys
+            STEP_DOCUMENTS[step]?.forEach(docType => {
+                if (!uploadedDocs[docType]) {
+                    errors[docType] = `${DOCUMENT_LABELS[docType] || docType} required`;
+                }
+            });
+
         }
 
         // 🟡 STEP 1: RECEIPTS
@@ -3367,11 +3450,16 @@ export default function ProfilePage() {
             if (!hasAssistance) {
                 errors.expenditure = "Enter at least one financial assistance";
             }
+
         }
 
-        // 🟠 STEP 2: LEGAL
+        // 🟠 STEP 2: LEGAL — uses document_type keys
         if (step === 2) {
-
+            STEP_DOCUMENTS[step]?.forEach(docType => {
+                if (!uploadedDocs[docType]) {
+                    errors[docType] = `${DOCUMENT_LABELS[docType] || docType} required`;
+                }
+            });
         }
 
         // 🔵 STEP 3: LOCATION
@@ -3411,9 +3499,10 @@ export default function ProfilePage() {
             if (hasPlayground === "1-Yes" && !playgroundArea) {
                 errors.playgroundArea = "Enter playground area";
             }
+
+            
         }
 
-        // 🟤 STEP 5: STAFF
         // 🟤 STEP 5: STAFF
         if (step === 5) {
             if (!staffCounts?.regular || staffCounts.regular === "")
@@ -3433,6 +3522,13 @@ export default function ProfilePage() {
             if (!hasCCTV) errors.hasCCTV = "Required";
             if (!hasFirstAid) errors.hasFirstAid = "Required";
             if (!hasSafetyTraining) errors.hasSafetyTraining = "Required";
+
+            // Document validations using document_type keys
+            STEP_DOCUMENTS[step]?.forEach(docType => {
+                if (!uploadedDocs[docType]) {
+                    errors[docType] = `${DOCUMENT_LABELS[docType] || docType} required`;
+                }
+            });
         }
 
         // 🟢 STEP 7: STUDENTS
@@ -3457,20 +3553,21 @@ export default function ProfilePage() {
             }
         }
 
-        // 🔷 STEP 9: TRANSPORT
+        // 🔷 STEP 9: TRANSPORT — uses document_type keys
         if (step === 9) {
-            if (!uploadedDocs?.transport_fitness_certificate)
-                errors.transFitnessCert = "Fitness certificate upload required";
-
-            if (!uploadedDocs?.transport_permit)
-                errors.transPermit = "Transport permit upload required";
-
             if (!transDriverExperience)
                 errors.transDriverExperience = "Driver experience required";
 
             if (!transDriverNoTrafficOffences)
                 errors.transDriverNoTrafficOffences = "Required";
+
+            STEP_DOCUMENTS[step]?.forEach(docType => {
+                if (!uploadedDocs[docType]) {
+                    errors[docType] = `${DOCUMENT_LABELS[docType] || docType} required`;
+                }
+            });
         }
+
 
         return errors;
     };
@@ -4220,13 +4317,43 @@ export default function ProfilePage() {
                         <div className="space-y-4">
                             <h3 className="text-lg font-semibold text-neutral-800 mb-2 pb-2 border-b border-neutral-100">Documents</h3>
                             <div className="grid md:grid-cols-2 gap-5">
-                                <UploadField label="Registration Certificate" />
-                                <UploadField label="Trust Certificate" />
-                                {(applicationType === "Renewal" || applicationType === "Upgradation") && (
-                                    <div className="md:col-span-2">
-                                        <UploadField label="Current Recognition Certificate(s)" />
-                                    </div>
-                                )}
+                                {(STEP_DOCUMENTS[0] || []).map((docType) => {
+                                    const existingDoc = getDocByType(docType);
+                                    return (
+                                        <DocumentUploadBox
+                                            key={docType}
+                                            documentType={docType}
+                                            label={DOCUMENT_LABELS[docType] || docType}
+                                            isUploaded={!!uploadedDocs[docType]}
+                                            existingDoc={existingDoc}
+                                            onUpload={async (file) => {
+                                                await uploadDocument(file, docType, 0);
+                                            }}
+                                            onReplace={async (file) => {
+                                                if (existingDoc?.id) {
+                                                    await handleReplace(existingDoc.id, file);
+                                                }
+                                            }}
+                                            error={stepErrors[0]?.[docType]}
+                                        />
+                                    );
+                                })}
+                                {(applicationType === "Renewal" || applicationType === "Upgradation") && (() => {
+                                    const existingDoc = getDocByType("current_recognition_certificate");
+                                    return (
+                                        <div className="md:col-span-2">
+                                            <DocumentUploadBox
+                                                documentType="current_recognition_certificate"
+                                                label="Current Recognition Certificate(s)"
+                                                isUploaded={!!uploadedDocs["current_recognition_certificate"]}
+                                                existingDoc={existingDoc}
+                                                onUpload={async (file) => { await uploadDocument(file, "current_recognition_certificate", 0); }}
+                                                onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                error={stepErrors[0]?.["current_recognition_certificate"]}
+                                            />
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
 
@@ -4712,7 +4839,21 @@ export default function ProfilePage() {
                                             />
                                             {applicationType === "Upgradation" && isRecordsMaintained === "1-Yes" && (
                                                 <div className="mt-2 p-3 bg-white rounded-xl border border-primary-100">
-                                                    <UploadField label="Upload Sample Cumulative Record / Progress Report (Mandatory for Upgradation)" />
+                                                    {(() => {
+                                                        const docType = "sample_cumulative_record";
+                                                        const existingDoc = getDocByType(docType);
+                                                        return (
+                                                            <DocumentUploadBox
+                                                                documentType={docType}
+                                                                label="Upload Sample Cumulative Record / Progress Report (Mandatory for Upgradation)"
+                                                                isUploaded={!!existingDoc}
+                                                                existingDoc={existingDoc}
+                                                                onUpload={async (file) => uploadDocument(file, docType, currentStep)}
+                                                                onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                                error={stepErrors[currentStep]?.[docType]}
+                                                            />
+                                                        );
+                                                    })()}
                                                 </div>
                                             )}
                                         </div>
@@ -4998,7 +5139,20 @@ export default function ProfilePage() {
                                         )}
                                         {applicationType === "New Recognition" && hasSMC === "1-Yes" && (
                                             <div className="mt-2 p-3 bg-white rounded-xl border border-primary-100">
-                                                <UploadField label="Upload List of SMC/SDMC Members (Mandatory)" />
+                                                {(() => {
+                                                    const existingDoc = getDocByType("smc_members_list");
+                                                    return (
+                                                        <DocumentUploadBox
+                                                            documentType="smc_members_list"
+                                                            label="Upload List of SMC/SDMC Members (Mandatory)"
+                                                            isUploaded={!!uploadedDocs["smc_members_list"]}
+                                                            existingDoc={existingDoc}
+                                                            onUpload={async (file) => { await uploadDocument(file, "smc_members_list", 0); }}
+                                                            onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                            error={stepErrors[0]?.["smc_members_list"]}
+                                                        />
+                                                    );
+                                                })()}
                                             </div>
                                         )}
                                         <SelectField
@@ -5038,7 +5192,20 @@ export default function ProfilePage() {
                                                     />
                                                     {applicationType === "Upgradation" && (
                                                         <div className="mt-2 p-3 bg-white rounded-xl border border-primary-100">
-                                                            <UploadField label="Upload School Development Plan Document (Mandatory for Upgradation)" />
+                                                            {(() => {
+                                                                const existingDoc = getDocByType("school_development_plan");
+                                                                return (
+                                                                    <DocumentUploadBox
+                                                                        documentType="school_development_plan"
+                                                                        label="Upload School Development Plan Document (Mandatory for Upgradation)"
+                                                                        isUploaded={!!uploadedDocs["school_development_plan"]}
+                                                                        existingDoc={existingDoc}
+                                                                        onUpload={async (file) => { await uploadDocument(file, "school_development_plan", 0); }}
+                                                                        onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                                        error={stepErrors[0]?.["school_development_plan"]}
+                                                                    />
+                                                                );
+                                                            })()}
                                                         </div>
                                                     )}
                                                 </>
@@ -5273,7 +5440,21 @@ export default function ProfilePage() {
                                         />
                                         {hasFitIndia === "1-Yes" && (
                                             <div className="ml-0 md:ml-4 p-3 bg-white rounded-xl border border-primary-100 animate-in fade-in slide-in-from-top-2">
-                                                <UploadField label="Upload Fit India Certificate (Optional but recommended)" />
+                                                {(() => {
+                                                    const docType = "fit_india_certificate";
+                                                    const existingDoc = getDocByType(docType);
+                                                    return (
+                                                        <DocumentUploadBox
+                                                            documentType={docType}
+                                                            label="Upload Fit India Certificate (Optional but recommended)"
+                                                            isUploaded={!!existingDoc}
+                                                            existingDoc={existingDoc}
+                                                            onUpload={async (file) => uploadDocument(file, docType, currentStep)}
+                                                            onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                            error={stepErrors[currentStep]?.[docType]}
+                                                        />
+                                                    );
+                                                })()}
                                             </div>
                                         )}
                                     </div>
@@ -5652,18 +5833,43 @@ export default function ProfilePage() {
                 )}
 
                 {/* Step 2: Legal Details */}
-                {
-                    currentStep === 2 && (
-                        <div className="grid md:grid-cols-2 gap-5">
-                            <InputField label="3.1 Organization Name" placeholder="Enter organization name" />
-                            <SelectField label="3.2 Ownership Type" options={["Trust", "Society", "Company", "Individual", "Government"]} />
-                            <SelectField label="3.3 Land Ownership" options={["Owned", "Leased", "Government Allotted"]} />
-                            <div className="md:col-span-2"><UploadField label="3.4 Land Document" /></div>
-                            <div className="md:col-span-2"><UploadField label="3.5 NOC Certificate" /></div>
-                            <div className="md:col-span-2"><UploadField label="3.6 Building Approval" /></div>
+                {currentStep === 2 && (
+                    <div className="grid md:grid-cols-2 gap-5">
+
+                        <InputField label="3.1 Organization Name" placeholder="Enter organization name" />
+                        <SelectField label="3.2 Ownership Type" options={["Trust", "Society", "Company", "Individual", "Government"]} />
+                        <SelectField label="3.3 Land Ownership" options={["Owned", "Leased", "Government Allotted"]} />
+
+                        {/* DOCUMENTS UI */}
+                        <div className="md:col-span-2">
+                            <h3 className="text-lg font-semibold text-neutral-800 mb-4 pb-2 border-b border-neutral-100">📄 Required Legal Documents</h3>
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {(STEP_DOCUMENTS[2] || []).map((docType) => {
+                                    const existingDoc = getDocByType(docType);
+                                    return (
+                                        <DocumentUploadBox
+                                            key={docType}
+                                            documentType={docType}
+                                            label={DOCUMENT_LABELS[docType] || docType}
+                                            isUploaded={!!uploadedDocs[docType]}
+                                            existingDoc={existingDoc}
+                                            onUpload={async (file) => {
+                                                await uploadDocument(file, docType, 2);
+                                            }}
+                                            onReplace={async (file) => {
+                                                if (existingDoc?.id) {
+                                                    await handleReplace(existingDoc.id, file);
+                                                }
+                                            }}
+                                            error={stepErrors[2]?.[docType]}
+                                        />
+                                    );
+                                })}
+                            </div>
                         </div>
-                    )
-                }
+
+                    </div>
+                )}
 
                 {/* Step 3: Location */}
                 {
@@ -5750,9 +5956,19 @@ export default function ProfilePage() {
                                                 options={["1-Government", "2-Rented", "3-Private", "4-Other"]}
                                                 error={stepErrors[4]?.buildingStatus}
                                             />
-                                            {applicationType === "New Recognition" && buildingStatus === "2-Rented" && (
-                                                <UploadField label="Upload Rent Agreement (Min 3-5 Years)" />
-                                            )}
+                                            {applicationType === "New Recognition" && buildingStatus === "2-Rented" && (() => {
+                                                const existingDoc = getDocByType("rent_agreement");
+                                                return (
+                                                    <DocumentUploadBox
+                                                        documentType="rent_agreement"
+                                                        label="Upload Rent Agreement (Min 3-5 Years)"
+                                                        isUploaded={!!uploadedDocs["rent_agreement"]}
+                                                        existingDoc={existingDoc}
+                                                        onUpload={async (file) => { await uploadDocument(file, "rent_agreement", 4); }}
+                                                        onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                    />
+                                                );
+                                            })()}
                                             {applicationType === "Upgradation" && buildingStatus === "5-NO Building" && (
                                                 <p className="text-xs font-bold text-red-600 bg-red-50 p-2 rounded border border-red-200">
                                                     ❌ Upgradation Blocker: Cannot upgrade a school that has no physical structure.
@@ -5821,9 +6037,19 @@ export default function ProfilePage() {
                                                 onChange={(e) => setBuildingDilapidated(e.target.value)}
                                                 placeholder="0"
                                             />
-                                            {applicationType === "Renewal" && Number(buildingDilapidated) > 0 && (
-                                                <UploadField label="Upload Fitness Certificate from PWD" />
-                                            )}
+                                            {applicationType === "Renewal" && Number(buildingDilapidated) > 0 && (() => {
+                                                const existingDoc = getDocByType("pwd_fitness_cert");
+                                                return (
+                                                    <DocumentUploadBox
+                                                        documentType="pwd_fitness_cert"
+                                                        label="Upload Fitness Certificate from PWD"
+                                                        isUploaded={!!uploadedDocs["pwd_fitness_cert"]}
+                                                        existingDoc={existingDoc}
+                                                        onUpload={async (file) => { await uploadDocument(file, "pwd_fitness_cert", 4); }}
+                                                        onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                    />
+                                                );
+                                            })()}
                                         </div>
                                         <InputField
                                             label="No of Building Under Construction"
@@ -5913,7 +6139,21 @@ export default function ProfilePage() {
                                         {(Number(condPuccaMajor) > 0 || Number(condPartiallyPuccaMajor) > 0 || Number(condKuchchaMajor) > 0 || Number(condTentMajor) > 0) && (
                                             <div className="mt-4">
                                                 <p className="text-xs font-bold text-red-600 mb-2">Major repairs required. Please upload stability certificate.</p>
-                                                <UploadField label="Upload Structural Stability Certificate" />
+                                                {(() => {
+                                                    const docType = "structural_stability_cert";
+                                                    const existingDoc = getDocByType(docType);
+                                                    return (
+                                                        <DocumentUploadBox
+                                                            documentType={docType}
+                                                            label="Upload Structural Stability Certificate"
+                                                            isUploaded={!!existingDoc}
+                                                            existingDoc={existingDoc}
+                                                            onUpload={async (file) => uploadDocument(file, docType, currentStep)}
+                                                            onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                            error={stepErrors[currentStep]?.[docType]}
+                                                        />
+                                                    );
+                                                })()}
                                             </div>
                                         )}
                                     </div>
@@ -5936,9 +6176,19 @@ export default function ProfilePage() {
                                                     ❌ Security Risk: Proper concrete boundary walls are usually required for new recognition.
                                                 </p>
                                             )}
-                                            {applicationType === "Renewal" && boundaryWall === "2-Pucca but broken" && (
-                                                <UploadField label="Upload Repair Plan / Quote" />
-                                            )}
+                                            {applicationType === "Renewal" && boundaryWall === "2-Pucca but broken" && (() => {
+                                                const existingDoc = getDocByType("repair_plan");
+                                                return (
+                                                    <DocumentUploadBox
+                                                        documentType="repair_plan"
+                                                        label="Upload Repair Plan / Quote"
+                                                        isUploaded={!!uploadedDocs["repair_plan"]}
+                                                        existingDoc={existingDoc}
+                                                        onUpload={async (file) => { await uploadDocument(file, "repair_plan", 4); }}
+                                                        onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                    />
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 </div>
@@ -6200,7 +6450,21 @@ export default function ProfilePage() {
                                                     <div className="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-xl space-y-2">
                                                         <p className="text-sm font-bold text-blue-800">Maintenance Action Required</p>
                                                         <p className="text-xs text-blue-700 mb-2">Since functional count is lower than total, please upload a repair plan or photos of repairs.</p>
-                                                        <UploadField label="Upload Maintenance/Repair Plan" />
+                                                        {(() => {
+                                                            const docType = "maintenance_repair_plan";
+                                                            const existingDoc = getDocByType(docType);
+                                                            return (
+                                                                <DocumentUploadBox
+                                                                    documentType={docType}
+                                                                    label="Upload Maintenance/Repair Plan"
+                                                                    isUploaded={!!existingDoc}
+                                                                    existingDoc={existingDoc}
+                                                                    onUpload={async (file) => uploadDocument(file, docType, currentStep)}
+                                                                    onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                                    error={stepErrors[currentStep]?.[docType]}
+                                                                />
+                                                            );
+                                                        })()}
                                                     </div>
                                                 )}
                                             </div>
@@ -6313,7 +6577,21 @@ export default function ProfilePage() {
                                         <div className="space-y-3">
                                             <SelectField label="(c) Whether Drinking water quality is tested from water testing lab?" value={hasWaterQualityTested} onChange={(e) => setHasWaterQualityTested(e.target.value)} options={["1-Yes", "2-No"]} />
                                             {applicationType === "Renewal" && hasWaterQualityTested === "1-Yes" && (
-                                                <UploadField label="Upload Water Quality Test Report" />
+                                                (() => {
+                                                    const docType = "water_quality_test_report";
+                                                    const existingDoc = getDocByType(docType);
+                                                    return (
+                                                        <DocumentUploadBox
+                                                            documentType={docType}
+                                                            label="Upload Water Quality Test Report"
+                                                            isUploaded={!!existingDoc}
+                                                            existingDoc={existingDoc}
+                                                            onUpload={async (file) => uploadDocument(file, docType, currentStep)}
+                                                            onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                            error={stepErrors[currentStep]?.[docType]}
+                                                        />
+                                                    );
+                                                })()
                                             )}
                                         </div>
                                     </div>
@@ -6704,9 +6982,51 @@ export default function ProfilePage() {
                                             <p className="text-xs text-blue-600">Operating a hostel requires separate safety certificates. Provide details regarding Warden and FSSAI.</p>
 
                                             <div className="grid md:grid-cols-3 gap-4">
-                                                <UploadField label="Hostel Fire Safety Cert." />
-                                                <UploadField label="Food Safety (FSSAI) License" />
-                                                <UploadField label="Warden Details / Identity" />
+                                                {(() => {
+                                                    const docType = "hostel_fire_safety_cert";
+                                                    const existingDoc = getDocByType(docType);
+                                                    return (
+                                                        <DocumentUploadBox
+                                                            documentType={docType}
+                                                            label="Hostel Fire Safety Cert."
+                                                            isUploaded={!!existingDoc}
+                                                            existingDoc={existingDoc}
+                                                            onUpload={async (file) => uploadDocument(file, docType, currentStep)}
+                                                            onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                            error={stepErrors[currentStep]?.[docType]}
+                                                        />
+                                                    );
+                                                })()}
+                                                {(() => {
+                                                    const docType = "fssai_license";
+                                                    const existingDoc = getDocByType(docType);
+                                                    return (
+                                                        <DocumentUploadBox
+                                                            documentType={docType}
+                                                            label="Food Safety (FSSAI) License"
+                                                            isUploaded={!!existingDoc}
+                                                            existingDoc={existingDoc}
+                                                            onUpload={async (file) => uploadDocument(file, docType, currentStep)}
+                                                            onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                            error={stepErrors[currentStep]?.[docType]}
+                                                        />
+                                                    );
+                                                })()}
+                                                {(() => {
+                                                    const docType = "warden_details";
+                                                    const existingDoc = getDocByType(docType);
+                                                    return (
+                                                        <DocumentUploadBox
+                                                            documentType={docType}
+                                                            label="Warden Details / Identity"
+                                                            isUploaded={!!existingDoc}
+                                                            existingDoc={existingDoc}
+                                                            onUpload={async (file) => uploadDocument(file, docType, currentStep)}
+                                                            onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                            error={stepErrors[currentStep]?.[docType]}
+                                                        />
+                                                    );
+                                                })()}
                                             </div>
 
                                             {applicationType === "New Recognition" && (
@@ -7029,6 +7349,36 @@ export default function ProfilePage() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Required Documents for Infrastructure */}
+                                {(STEP_DOCUMENTS[4] || []).length > 0 && (
+                                    <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm space-y-6 mb-6">
+                                        <h4 className="font-semibold text-base text-primary-800 pb-2 border-b border-neutral-100">📄 Required Infrastructure Documents</h4>
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            {(STEP_DOCUMENTS[4] || []).map((docType) => {
+                                                const existingDoc = getDocByType(docType);
+                                                return (
+                                                    <DocumentUploadBox
+                                                        key={docType}
+                                                        documentType={docType}
+                                                        label={DOCUMENT_LABELS[docType] || docType}
+                                                        isUploaded={!!uploadedDocs[docType]}
+                                                        existingDoc={existingDoc}
+                                                        onUpload={async (file) => {
+                                                            await uploadDocument(file, docType, 4);
+                                                        }}
+                                                        onReplace={async (file) => {
+                                                            if (existingDoc?.id) {
+                                                                await handleReplace(existingDoc.id, file);
+                                                            }
+                                                        }}
+                                                        error={stepErrors[4]?.[docType]}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
                             </div>
                         </div>
@@ -7792,9 +8142,20 @@ export default function ProfilePage() {
                                                 options={["1-Yes", "2-No"]}
                                                 error={stepErrors[6]?.hasDisasterPlan}
                                             />
-                                            {hasDisasterPlan === "1-Yes" && (
-                                                <UploadField label="Upload SDMP Document" />
-                                            )}
+                                            {hasDisasterPlan === "1-Yes" && (() => {
+                                                const existingDoc = getDocByType("sdmp_document");
+                                                return (
+                                                    <DocumentUploadBox
+                                                        documentType="sdmp_document"
+                                                        label="Upload SDMP Document"
+                                                        isUploaded={!!uploadedDocs["sdmp_document"]}
+                                                        existingDoc={existingDoc}
+                                                        onUpload={async (file) => { await uploadDocument(file, "sdmp_document", 6); }}
+                                                        onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                        error={stepErrors[6]?.["sdmp_document"]}
+                                                    />
+                                                );
+                                            })()}
                                             {["New Recognition", "Renewal"].includes(applicationType) && hasDisasterPlan === "2-No" && (
                                                 <p className="text-xs font-bold text-red-600 bg-red-50 p-2 rounded border border-red-200">❌ Non-Compliant: SDMP is a mandatory legal requirement.</p>
                                             )}
@@ -7808,9 +8169,20 @@ export default function ProfilePage() {
                                                 onChange={(e) => setHasStructuralAudit(e.target.value)}
                                                 options={["1-Yes", "2-No"]}
                                             />
-                                            {hasStructuralAudit === "1-Yes" && (
-                                                <UploadField label="Upload PWD Structural Safety Certificate" />
-                                            )}
+                                            {hasStructuralAudit === "1-Yes" && (() => {
+                                                const existingDoc = getDocByType("pwd_structural_safety_cert");
+                                                return (
+                                                    <DocumentUploadBox
+                                                        documentType="pwd_structural_safety_cert"
+                                                        label="Upload PWD Structural Safety Certificate"
+                                                        isUploaded={!!uploadedDocs["pwd_structural_safety_cert"]}
+                                                        existingDoc={existingDoc}
+                                                        onUpload={async (file) => { await uploadDocument(file, "pwd_structural_safety_cert", 6); }}
+                                                        onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                        error={stepErrors[6]?.["pwd_structural_safety_cert"]}
+                                                    />
+                                                );
+                                            })()}
                                             {["New Recognition", "Renewal"].includes(applicationType) && hasStructuralAudit === "2-No" && (
                                                 <p className="text-xs font-bold text-red-600 bg-red-50 p-2 rounded border border-red-200">❌ Non-Compliant: Structural safety certificate is mandatory.</p>
                                             )}
@@ -7850,9 +8222,20 @@ export default function ProfilePage() {
                                                 options={["1-Yes", "2-No"]}
                                                 error={stepErrors[6]?.hasFireExtinguishers}
                                             />
-                                            {hasFireExtinguishers === "1-Yes" && (
-                                                <UploadField label="Upload Fire Department Certificate" />
-                                            )}
+                                            {hasFireExtinguishers === "1-Yes" && (() => {
+                                                const existingDoc = getDocByType("fire_dept_certificate");
+                                                return (
+                                                    <DocumentUploadBox
+                                                        documentType="fire_dept_certificate"
+                                                        label="Upload Fire Department Certificate"
+                                                        isUploaded={!!uploadedDocs["fire_dept_certificate"]}
+                                                        existingDoc={existingDoc}
+                                                        onUpload={async (file) => { await uploadDocument(file, "fire_dept_certificate", 6); }}
+                                                        onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                        error={stepErrors[6]?.["fire_dept_certificate"]}
+                                                    />
+                                                );
+                                            })()}
                                             {["New Recognition", "Renewal"].includes(applicationType) && hasFireExtinguishers === "2-No" && (
                                                 <p className="text-xs font-bold text-red-600 bg-red-50 p-2 rounded border border-red-200">❌ Non-Compliant: Fire extinguishers are a mandatory safety requirement.</p>
                                             )}
@@ -8091,9 +8474,20 @@ export default function ProfilePage() {
                                                 onChange={(e) => setSssaCertification(e.target.value)}
                                                 options={["1-Yes", "2-No"]}
                                             />
-                                            {sssaCertification === "1-Yes" && (
-                                                <UploadField label="Upload SSSA Certificate / Self-Certification Receipt" />
-                                            )}
+                                            {sssaCertification === "1-Yes" && (() => {
+                                                const existingDoc = getDocByType("sssa_certificate");
+                                                return (
+                                                    <DocumentUploadBox
+                                                        documentType="sssa_certificate"
+                                                        label="Upload SSSA Certificate / Self-Certification Receipt"
+                                                        isUploaded={!!uploadedDocs["sssa_certificate"]}
+                                                        existingDoc={existingDoc}
+                                                        onUpload={async (file) => { await uploadDocument(file, "sssa_certificate", 6); }}
+                                                        onReplace={async (file) => { if (existingDoc?.id) await handleReplace(existingDoc.id, file); }}
+                                                        error={stepErrors[6]?.["sssa_certificate"]}
+                                                    />
+                                                );
+                                            })()}
                                             {sssaCertification === "2-No" && (
                                                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
                                                     <p className="text-sm font-bold text-red-700">
@@ -8815,7 +9209,8 @@ export default function ProfilePage() {
 
                                         {vocationalLabs.some(l => l.condition === "1-Fully Equipped" || l.condition === "2-Partially Equipped" || l.separateRoom === "1-Yes") && (
                                             <div className="mt-6 p-4 bg-emerald-50 rounded-xl border border-emerald-100 animate-in fade-in slide-in-from-top-2">
-                                                <UploadField label="Upload Lab Photos / Equipment List (Required to verify lab availability)" />
+                                                <p className="text-xs font-bold text-emerald-700 mb-2">📸 Upload Lab Photos / Equipment List</p>
+                                                <p className="text-[10px] text-emerald-600">Required to verify lab availability</p>
                                             </div>
                                         )}
                                     </div>
@@ -8826,143 +9221,106 @@ export default function ProfilePage() {
 
                 }
                 {currentStep === 9 && (
-                    <div className="space-y-6">
-                        <h2 className="text-xl font-semibold">Transportation Details</h2>
-
-                        {stepErrors[9] && Object.keys(stepErrors[9]).length > 0 && (
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                                {Object.values(stepErrors[9]).map((err, i) => (
-                                    <p key={i} className="text-xs text-red-600 font-semibold">{err as string}</p>
-                                ))}
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* Required Documents for Transport */}
+                        {(STEP_DOCUMENTS[9] || []).length > 0 && (
+                            <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm space-y-6 mb-6">
+                                <h4 className="font-semibold text-base text-primary-800 pb-2 border-b border-neutral-100">📄 Required Transport Documents</h4>
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    {(STEP_DOCUMENTS[9] || []).map((docType) => {
+                                        const existingDoc = getDocByType(docType);
+                                        return (
+                                            <DocumentUploadBox
+                                                key={docType}
+                                                documentType={docType}
+                                                label={DOCUMENT_LABELS[docType] || docType}
+                                                isUploaded={!!uploadedDocs[docType]}
+                                                existingDoc={existingDoc}
+                                                onUpload={async (file) => {
+                                                    await uploadDocument(file, docType, 9);
+                                                }}
+                                                onReplace={async (file) => {
+                                                    if (existingDoc?.id) {
+                                                        await handleReplace(existingDoc.id, file);
+                                                    }
+                                                }}
+                                                error={stepErrors[9]?.[docType]}
+                                            />
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Fitness Certificate Upload */}
-                            <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    Vehicle Fitness Certificate * <span className="text-xs text-neutral-400">(PDF/JPG/PNG, max 5MB)</span>
-                                </label>
-                                <input
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => handleFileUpload(e, "transport_fitness_certificate")}
-                                    className="w-full border rounded px-3 py-2"
-                                    disabled={uploading}
-                                />
-                                {uploadedDocs?.transport_fitness_certificate ? (
-                                    <p className="text-green-600 text-xs mt-1">✅ Uploaded successfully</p>
-                                ) : stepErrors[9]?.transFitnessCert ? (
-                                    <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transFitnessCert}</p>
-                                ) : null}
-                            </div>
+                        {/* 1. General Vehicle Standards */}
+                        <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm space-y-6 mb-6">
+                            <h4 className="font-semibold text-base text-primary-800 pb-2 border-b border-neutral-100">9.1 General Vehicle Standards</h4>
 
-                            {/* Transport Permit Upload */}
-                            <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    Transport Permit * <span className="text-xs text-neutral-400">(PDF/JPG/PNG, max 5MB)</span>
-                                </label>
-                                <input
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => handleFileUpload(e, "transport_permit")}
-                                    className="w-full border rounded px-3 py-2"
-                                    disabled={uploading}
-                                />
-                                {uploadedDocs?.transport_permit ? (
-                                    <p className="text-green-600 text-xs mt-1">✅ Uploaded successfully</p>
-                                ) : stepErrors[9]?.transPermit ? (
-                                    <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transPermit}</p>
-                                ) : null}
-                            </div>
-
-                            {/* Rest of the transport fields remain the same */}
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Vehicle Age (years)</label>
-                                <input
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <InputField
+                                    label="Vehicle Age (years)"
                                     type="number"
                                     value={transVehicleAge}
                                     onChange={(e) => setTransVehicleAge(e.target.value)}
-                                    className="w-full border rounded px-3 py-2"
-                                    placeholder="e.g. 3"
+                                    placeholder="e.g. 5"
                                 />
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Speed Governor Installed</label>
-                                <select
+                                <SelectField
+                                    label="Speed Governor Installed"
                                     value={transSpeedGovernor}
                                     onChange={(e) => setTransSpeedGovernor(e.target.value)}
-                                    className="w-full border rounded px-3 py-2"
-                                >
-                                    <option value="">Select</option>
-                                    <option value="1-Yes">Yes</option>
-                                    <option value="2-No">No</option>
-                                </select>
+                                    options={["1-Yes", "2-No"]}
+                                />
                             </div>
+                        </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    Driver Experience *
-                                </label>
-                                <select
+                        {/* 2. Driver & Operational Requirements */}
+                        <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm space-y-6 mb-6">
+                            <h4 className="font-semibold text-base text-primary-800 pb-2 border-b border-neutral-100">9.2 Driver & Operational Requirements</h4>
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <SelectField
+                                    label="Driver Experience (Heavy/LMV)"
                                     value={transDriverExperience}
                                     onChange={(e) => setTransDriverExperience(e.target.value)}
-                                    className={`w-full border rounded px-3 py-2 ${stepErrors[9]?.transDriverExperience ? "border-red-400" : ""}`}
-                                >
-                                    <option value="">Select</option>
-                                    <option value="1-Less than 1 year">Less than 1 year</option>
-                                    <option value="2-1 to 3 years">1 to 3 years</option>
-                                    <option value="3-3 to 5 years">3 to 5 years</option>
-                                    <option value="4-More than 5 years">More than 5 years</option>
-                                </select>
-                                {stepErrors[9]?.transDriverExperience && (
-                                    <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transDriverExperience}</p>
-                                )}
-                            </div>
+                                    options={["1-Less than 1 year", "2-1 to 3 years", "3-3 to 5 years", "4-More than 5 years"]}
+                                    error={stepErrors[9]?.transDriverExperience}
+                                />
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    No Traffic Offences *
-                                </label>
-                                <select
+                                <SelectField
+                                    label="No Previous Traffic Offences"
                                     value={transDriverNoTrafficOffences}
                                     onChange={(e) => setTransDriverNoTrafficOffences(e.target.value)}
-                                    className={`w-full border rounded px-3 py-2 ${stepErrors[9]?.transDriverNoTrafficOffences ? "border-red-400" : ""}`}
-                                >
-                                    <option value="">Select</option>
-                                    <option value="1-Yes">Yes</option>
-                                    <option value="2-No">No</option>
-                                </select>
-                                {stepErrors[9]?.transDriverNoTrafficOffences && (
-                                    <p className="text-red-600 text-xs mt-1">⚠ {stepErrors[9].transDriverNoTrafficOffences}</p>
-                                )}
-                            </div>
+                                    options={["1-Yes", "2-No"]}
+                                    error={stepErrors[9]?.transDriverNoTrafficOffences}
+                                />
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">School Name Written on Bus</label>
-                                <select
+                                <SelectField
+                                    label="School Name and Phone prominently written"
                                     value={transSchoolNameWritten}
                                     onChange={(e) => setTransSchoolNameWritten(e.target.value)}
-                                    className="w-full border rounded px-3 py-2"
-                                >
-                                    <option value="">Select</option>
-                                    <option value="1-Yes">Yes</option>
-                                    <option value="2-No">No</option>
-                                </select>
+                                    options={["1-Yes", "2-No"]}
+                                />
                             </div>
+                        </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Auto Safety Measures</label>
-                                <select
+                        {/* 3. External/Auto Safety */}
+                        <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm space-y-6 mb-6">
+                            <h4 className="font-semibold text-base text-primary-800 pb-2 border-b border-neutral-100">9.3 Auto-Rickshaw & External Safety</h4>
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <SelectField
+                                    label="Safety of children in autorickshaws ensured"
                                     value={transAutoSafety}
                                     onChange={(e) => setTransAutoSafety(e.target.value)}
-                                    className="w-full border rounded px-3 py-2"
-                                >
-                                    <option value="">Select</option>
-                                    <option value="1-Yes">Yes</option>
-                                    <option value="2-No">No</option>
-                                </select>
+                                    options={["1-Yes", "2-No"]}
+                                />
+
+                                <div className="p-4 bg-primary-50/50 rounded-xl border border-primary-100">
+                                    <p className="text-xs text-primary-700 italic">
+                                        💡 Transport verification is a key factor in the safety audit. Please ensure all certificates are recent and valid.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -8971,20 +9329,7 @@ export default function ProfilePage() {
                 {/* Navigation Buttons */}
                 <div className="flex flex-wrap items-center justify-between mt-8 pt-6 border-t border-neutral-100 gap-3">
 
-                    {/* Global step error banner */}
-                    {stepErrors[currentStep] && Object.keys(stepErrors[currentStep]).length > 0 && (
-                        <div className="w-full mb-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
-                            <span className="text-red-500 font-bold mt-0.5">⚠️</span>
-                            <div>
-                                <p className="text-xs font-bold text-red-700 mb-1">Please fix the following errors before proceeding:</p>
-                                <ul className="list-disc list-inside space-y-0.5">
-                                    {Object.values(stepErrors[currentStep]).map((err, i) => (
-                                        <li key={i} className="text-xs text-red-600">{err as string}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    )}
+                    {/* Global step error banner removed - replaced by modal */}
 
                     <button
                         suppressHydrationWarning
@@ -9025,6 +9370,45 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </div>
+
+            {/* Validation Error Modal */}
+            {showErrorModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm" onClick={() => setShowErrorModal(false)} />
+                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-neutral-100 flex items-center justify-between bg-red-50">
+                            <div className="flex items-center gap-3">
+                                <span className="p-2 bg-red-100 text-red-600 rounded-xl">
+                                    <FiAlertCircle size={24} />
+                                </span>
+                                <h3 className="text-xl font-bold text-red-900">Required Information</h3>
+                            </div>
+                            <button onClick={() => setShowErrorModal(false)} className="p-2 hover:bg-red-100 rounded-lg text-red-400 transition-colors">
+                                <FiX size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-[60vh] overflow-y-auto">
+                            <p className="text-sm text-neutral-600 mb-4 font-medium">Please address the following mandatory requirements in <span className="text-primary-600 font-bold">{steps[currentStep]}</span> section:</p>
+                            <ul className="space-y-3">
+                                {Object.values(stepErrors[currentStep] || {}).map((err, i) => (
+                                    <li key={i} className="flex items-start gap-3 p-3 bg-neutral-50 rounded-xl border border-neutral-100 group hover:border-red-200 transition-colors">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                                        <span className="text-sm text-neutral-700 font-medium">{err as string}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="p-6 bg-neutral-50 border-t border-neutral-100 flex justify-end">
+                            <button
+                                onClick={() => setShowErrorModal(false)}
+                                className="px-8 py-3 bg-primary-600 text-white rounded-xl font-bold shadow-lg shadow-primary-600/20 hover:bg-primary-700 transition-all transform active:scale-95"
+                            >
+                                Understood
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </DashboardLayout >
     );
 }
@@ -9200,17 +9584,173 @@ function SelectField({
     );
 }
 
-function UploadField({ label }: { label: string }) {
+
+
+// ✅ NEW: Reusable Document Upload Box with drag-drop, replace, and link display
+function DocumentUploadBox({
+    documentType,
+    label,
+    isUploaded,
+    existingDoc,
+    onUpload,
+    onReplace,
+    error,
+}: {
+    documentType: string;
+    label: string;
+    isUploaded: boolean;
+    existingDoc?: any;
+    onUpload: (file: File) => Promise<void>;
+    onReplace: (file: File) => Promise<void>;
+    error?: string;
+}) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const replaceInputRef = useRef<HTMLInputElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const handleFile = async (file: File) => {
+        if (!file) return;
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            alert("File exceeds the 5 MB limit.");
+            return;
+        }
+        const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+        if (!allowed.includes(file.type)) {
+            alert("Only PDF, JPG, PNG, WEBP files are allowed.");
+            return;
+        }
+        setIsProcessing(true);
+        try {
+            await onUpload(file);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "Upload failed");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleReplace = async (file: File) => {
+        if (!file) return;
+        setIsProcessing(true);
+        try {
+            await onReplace(file);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "Replace failed");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+    const handleDragLeave = () => setIsDragging(false);
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            if (isUploaded && existingDoc?.id) {
+                handleReplace(file);
+            } else {
+                handleFile(file);
+            }
+        }
+    };
+
     return (
-        <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">{label}</label>
-            <div className="flex items-center justify-center w-full h-24 border-2 border-dashed border-neutral-200 rounded-xl hover:border-primary-400 transition-colors cursor-pointer bg-neutral-50 hover:bg-primary-50/50">
-                <div className="text-center">
-                    <FiUpload className="mx-auto text-neutral-400 mb-1" size={20} />
-                    <p className="text-xs text-neutral-500">Click to upload or drag & drop</p>
-                    <p className="text-xs text-neutral-400">PDF, JPG, PNG (Max 5MB)</p>
+        <div className="space-y-2">
+            <label className="block text-sm font-medium text-neutral-700">{label}</label>
+            <input
+                type="file"
+                className="hidden"
+                ref={fileInputRef}
+                accept=".pdf,.jpg,.png,.jpeg,.webp"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                    e.target.value = "";
+                }}
+            />
+            <input
+                type="file"
+                className="hidden"
+                ref={replaceInputRef}
+                accept=".pdf,.jpg,.png,.jpeg,.webp"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleReplace(file);
+                    e.target.value = "";
+                }}
+            />
+
+            {isUploaded && existingDoc ? (
+                <div className="p-4 rounded-xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-50 to-green-50 space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                            <FiCheck className="text-emerald-600" size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-emerald-800 truncate">{existingDoc.file_name || "Document uploaded"}</p>
+                            <p className="text-[10px] text-emerald-600">{existingDoc.uploaded_at || "Uploaded"}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {existingDoc.download_url && (
+                            <a
+                                href={existingDoc.download_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition-colors"
+                            >
+                                🔗 View File
+                            </a>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => replaceInputRef.current?.click()}
+                            disabled={isProcessing}
+                            className="px-3 py-1.5 text-[11px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                            {isProcessing ? "Replacing…" : "🔄 Replace"}
+                        </button>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div
+                    onClick={() => !isProcessing && fileInputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl transition-all cursor-pointer ${
+                        isProcessing
+                            ? "border-blue-400 bg-blue-50"
+                            : isDragging
+                                ? "border-primary-500 bg-primary-50 scale-[1.02]"
+                                : error
+                                    ? "border-red-400 bg-red-50 hover:border-red-500"
+                                    : "border-neutral-200 bg-neutral-50 hover:border-primary-400 hover:bg-primary-50/50"
+                    }`}
+                >
+                    {isProcessing ? (
+                        <>
+                            <span className="w-6 h-6 border-2 border-blue-400 border-t-blue-600 rounded-full animate-spin mb-2" />
+                            <p className="text-xs font-semibold text-blue-600">Uploading…</p>
+                        </>
+                    ) : (
+                        <>
+                            <FiUpload className="text-neutral-400 mb-2" size={22} />
+                            <p className="text-xs text-neutral-600 font-medium">Click or drag & drop to upload</p>
+                            <p className="text-[10px] text-neutral-400 mt-0.5">PDF, JPG, PNG, WEBP (Max 5MB)</p>
+                        </>
+                    )}
+                </div>
+            )}
+            {error && <p className="text-red-500 text-[10px] font-semibold mt-1">⚠ {error}</p>}
         </div>
     );
 }
+
