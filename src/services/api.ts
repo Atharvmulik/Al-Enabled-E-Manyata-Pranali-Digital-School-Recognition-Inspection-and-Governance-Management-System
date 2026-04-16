@@ -14,9 +14,7 @@ import {
   User, 
   Inspection, 
   Document, 
-  TimelineEvent, 
   Evidence, 
-  ChecklistItem, 
   FinalReport,
   Notification 
 } from '@/types';
@@ -144,19 +142,6 @@ class ApiService {
     throw new Error('Not implemented with dummy data');
   }
 
-  async scheduleVisit(id: string, date: string, remarks?: string): Promise<Inspection> {
-    // TODO: Replace with actual API call
-    // const response = await fetch(`${API_BASE_URL}/inspections/${id}/schedule`, {
-    //   method: 'POST',
-    //   headers: this.getHeaders(),
-    //   body: JSON.stringify({ scheduled_date: date, remarks }),
-    // });
-    // return response.json();
-
-    await mockDelay(800);
-    throw new Error('Not implemented with dummy data');
-  }
-
   // ==================== DOCUMENTS ====================
 
   async updateDocumentStatus(
@@ -190,21 +175,6 @@ class ApiService {
     throw new Error('Not implemented with dummy data');
   }
 
-  // ==================== TIMELINE ====================
-
-  async addTimelineEvent(inspectionId: string, event: Partial<TimelineEvent>): Promise<TimelineEvent> {
-    // TODO: Replace with actual API call
-    // const response = await fetch(`${API_BASE_URL}/inspections/${inspectionId}/timeline`, {
-    //   method: 'POST',
-    //   headers: this.getHeaders(),
-    //   body: JSON.stringify(event),
-    // });
-    // return response.json();
-
-    await mockDelay(500);
-    throw new Error('Not implemented with dummy data');
-  }
-
   // ==================== EVIDENCE ====================
 
   async uploadEvidence(inspectionId: string, file: FormData): Promise<Evidence> {
@@ -228,29 +198,6 @@ class ApiService {
     // });
 
     await mockDelay(500);
-  }
-
-  // ==================== CHECKLIST ====================
-
-  async updateChecklistItem(
-    inspectionId: string,
-    sectionId: string,
-    itemId: string,
-    updates: Partial<ChecklistItem>
-  ): Promise<ChecklistItem> {
-    // TODO: Replace with actual API call
-    // const response = await fetch(
-    //   `${API_BASE_URL}/inspections/${inspectionId}/checklist/${sectionId}/items/${itemId}`,
-    //   {
-    //     method: 'PATCH',
-    //     headers: this.getHeaders(),
-    //     body: JSON.stringify(updates),
-    //   }
-    // );
-    // return response.json();
-
-    await mockDelay(500);
-    throw new Error('Not implemented with dummy data');
   }
 
   // ==================== FINAL REPORT ====================

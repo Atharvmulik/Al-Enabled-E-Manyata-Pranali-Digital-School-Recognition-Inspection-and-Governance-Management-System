@@ -4,7 +4,7 @@ import { Notification, NotificationType } from '@/types';
 interface NotificationStore {
   notifications: Notification[];
   isLoading: boolean;
-  
+
   // Actions
   fetchNotifications: () => Promise<void>;
   markAsRead: (id: string) => void;
@@ -31,7 +31,7 @@ const dummyNotifications: Notification[] = [
     userId: 'officer-001',
     type: 'reminder',
     title: 'Inspection Due Tomorrow',
-    message: 'Your scheduled inspection for Modern School, Barakhamba is due tomorrow at 10:00 AM.',
+    message: 'Your inspection for Modern School, Barakhamba is assigned and requires document verification.',
     isRead: false,
     relatedId: 'insp-002',
     relatedType: 'inspection',

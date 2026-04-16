@@ -12,16 +12,12 @@ import { DashboardScreen } from '@/screens/dashboard/DashboardScreen';
 import { InspectionsScreen } from '@/screens/inspections/InspectionsScreen';
 import { InspectionDetailsScreen } from '@/screens/inspections/InspectionDetailsScreen';
 import { DocumentVerificationScreen } from '@/screens/inspections/DocumentVerificationScreen';
-import { ScheduleVisitScreen } from '@/screens/inspections/ScheduleVisitScreen';
 import { InspectionModeScreen } from '@/screens/inspections/InspectionModeScreen';
 import { EvidenceUploadScreen } from '@/screens/inspections/EvidenceUploadScreen';
-import { DigitalChecklistScreen } from '@/screens/inspections/DigitalChecklistScreen';
-import { TimelineScreen } from '@/screens/inspections/TimelineScreen';
 import { FinalReportScreen } from '@/screens/inspections/FinalReportScreen';
 import { NotificationsScreen } from '@/screens/notifications/NotificationsScreen';
 import { ProfileScreen } from '@/screens/profile/ProfileScreen';
 import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
-import { SettingsScreen } from '@/screens/profile/SettingsScreen';
 
 // Store
 import { useAuthStore, useNotificationStore } from '@/store';
@@ -150,11 +146,6 @@ export const AppNavigator: React.FC = () => {
               options={{ headerShown: false }}
             />
             <Stack.Screen
-              name="ScheduleVisit"
-              component={ScheduleVisitScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
               name="InspectionMode"
               component={InspectionModeScreen}
               options={{ headerShown: false }}
@@ -165,16 +156,6 @@ export const AppNavigator: React.FC = () => {
               options={{ headerShown: false }}
             />
             <Stack.Screen
-              name="DigitalChecklist"
-              component={DigitalChecklistScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Timeline"
-              component={TimelineScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
               name="FinalReport"
               component={FinalReportScreen}
               options={{ headerShown: false }}
@@ -182,11 +163,6 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen
               name="EditProfile"
               component={EditProfileScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Settings"
-              component={SettingsScreen}
               options={{ headerShown: false }}
             />
           </>
@@ -200,9 +176,9 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: Colors.surface,
     borderTopWidth: 0,
-    paddingBottom: Platform.OS === 'ios' ? 24 : Spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? 30 : Spacing.md,
     paddingTop: Spacing.sm,
-    height: Platform.OS === 'ios' ? 85 : 64,
+    height: Platform.OS === 'ios' ? 90 : 72,
     ...Shadows.lg,
   },
   tabBarLabel: {

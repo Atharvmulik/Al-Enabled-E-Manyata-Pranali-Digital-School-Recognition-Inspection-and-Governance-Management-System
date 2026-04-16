@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Inspection, InspectionStatus, PriorityLevel, TimelineEvent, Document, Evidence, ChecklistSection, FinalReport } from '@/types';
+import { Inspection, InspectionStatus, PriorityLevel, Document, Evidence, FinalReport } from '@/types';
 import { dummyInspections } from '@/services/dummyData';
 
 interface InspectionStore {
@@ -12,25 +12,21 @@ interface InspectionStore {
     priority?: PriorityLevel;
     searchQuery?: string;
   };
-  
+
   // Actions
   fetchInspections: () => Promise<void>;
   setCurrentInspection: (inspection: Inspection | null) => void;
   getInspectionById: (id: string) => Inspection | undefined;
   updateInspectionStatus: (id: string, status: InspectionStatus) => void;
   updateDocumentStatus: (inspectionId: string, documentId: string, status: Document['status'], remarks?: string) => void;
-  addTimelineEvent: (inspectionId: string, event: Omit<TimelineEvent, 'id' | 'inspectionId'>) => void;
   addEvidence: (inspectionId: string, evidence: Omit<Evidence, 'id' | 'inspectionId'>) => void;
   removeEvidence: (inspectionId: string, evidenceId: string) => void;
-  updateChecklistItem: (inspectionId: string, sectionId: string, itemId: string, updates: Partial<ChecklistSection['items'][0]>) => void;
   submitFinalReport: (inspectionId: string, report: Omit<FinalReport, 'id' | 'inspectionId'>) => void;
-  scheduleVisit: (inspectionId: string, date: string, remarks?: string) => void;
   setFilters: (filters: Partial<InspectionStore['filters']>) => void;
   getFilteredInspections: () => Inspection[];
   getStatistics: () => {
     total: number;
     pending: number;
-    scheduled: number;
     inProgress: number;
     completed: number;
     overdue: number;
@@ -75,38 +71,19 @@ export const useInspectionStore = create<InspectionStore>((set, get) => ({
       inspections: state.inspections.map(inspection =>
         inspection.id === inspectionId
           ? {
-              ...inspection,
-              documents: inspection.documents.map(doc =>
-                doc.id === documentId
-                  ? { ...doc, status, remarks, verifiedAt: new Date().toISOString() }
-                  : doc
-              ),
-              updatedAt: new Date().toISOString(),
-            }
+            ...inspection,
+            documents: inspection.documents.map(doc =>
+              doc.id === documentId
+                ? { ...doc, status, remarks, verifiedAt: new Date().toISOString() }
+                : doc
+            ),
+            updatedAt: new Date().toISOString(),
+          }
           : inspection
       ),
     }));
   },
 
-  addTimelineEvent: (inspectionId, event) => {
-    const newEvent: TimelineEvent = {
-      ...event,
-      id: `event-${Date.now()}`,
-      inspectionId,
-    };
-    
-    set(state => ({
-      inspections: state.inspections.map(inspection =>
-        inspection.id === inspectionId
-          ? {
-              ...inspection,
-              timeline: [...inspection.timeline, newEvent],
-              updatedAt: new Date().toISOString(),
-            }
-          : inspection
-      ),
-    }));
-  },
 
   addEvidence: (inspectionId, evidence) => {
     const newEvidence: Evidence = {
@@ -114,15 +91,15 @@ export const useInspectionStore = create<InspectionStore>((set, get) => ({
       id: `evidence-${Date.now()}`,
       inspectionId,
     };
-    
+
     set(state => ({
       inspections: state.inspections.map(inspection =>
         inspection.id === inspectionId
           ? {
-              ...inspection,
-              evidence: [...inspection.evidence, newEvidence],
-              updatedAt: new Date().toISOString(),
-            }
+            ...inspection,
+            evidence: [...inspection.evidence, newEvidence],
+            updatedAt: new Date().toISOString(),
+          }
           : inspection
       ),
     }));
@@ -133,33 +110,10 @@ export const useInspectionStore = create<InspectionStore>((set, get) => ({
       inspections: state.inspections.map(inspection =>
         inspection.id === inspectionId
           ? {
-              ...inspection,
-              evidence: inspection.evidence.filter(e => e.id !== evidenceId),
-              updatedAt: new Date().toISOString(),
-            }
-          : inspection
-      ),
-    }));
-  },
-
-  updateChecklistItem: (inspectionId, sectionId, itemId, updates) => {
-    set(state => ({
-      inspections: state.inspections.map(inspection =>
-        inspection.id === inspectionId
-          ? {
-              ...inspection,
-              checklist: inspection.checklist.map(section =>
-                section.id === sectionId
-                  ? {
-                      ...section,
-                      items: section.items.map(item =>
-                        item.id === itemId ? { ...item, ...updates } : item
-                      ),
-                    }
-                  : section
-              ),
-              updatedAt: new Date().toISOString(),
-            }
+            ...inspection,
+            evidence: inspection.evidence.filter(e => e.id !== evidenceId),
+            updatedAt: new Date().toISOString(),
+          }
           : inspection
       ),
     }));
@@ -171,37 +125,22 @@ export const useInspectionStore = create<InspectionStore>((set, get) => ({
       id: `report-${Date.now()}`,
       inspectionId,
     };
-    
+
     set(state => ({
       inspections: state.inspections.map(inspection =>
         inspection.id === inspectionId
           ? {
-              ...inspection,
-              finalReport: newReport,
-              status: report.recommendation === 'approve' ? 'approved' : 
-                      report.recommendation === 'reject' ? 'rejected' : 're_inspection_required',
-              updatedAt: new Date().toISOString(),
-            }
+            ...inspection,
+            finalReport: newReport,
+            status: report.recommendation === 'approve' ? 'approved' :
+              report.recommendation === 'reject' ? 'rejected' : 're_inspection_required',
+            updatedAt: new Date().toISOString(),
+          }
           : inspection
       ),
     }));
   },
 
-  scheduleVisit: (inspectionId, date, remarks) => {
-    set(state => ({
-      inspections: state.inspections.map(inspection =>
-        inspection.id === inspectionId
-          ? {
-              ...inspection,
-              scheduledDate: date,
-              status: 'scheduled',
-              notes: remarks || inspection.notes,
-              updatedAt: new Date().toISOString(),
-            }
-          : inspection
-      ),
-    }));
-  },
 
   setFilters: (filters) => {
     set(state => ({ filters: { ...state.filters, ...filters } }));
@@ -209,7 +148,7 @@ export const useInspectionStore = create<InspectionStore>((set, get) => ({
 
   getFilteredInspections: () => {
     const { inspections, filters } = get();
-    
+
     return inspections.filter(inspection => {
       if (filters.status && inspection.status !== filters.status) return false;
       if (filters.priority && inspection.priority !== filters.priority) return false;
@@ -226,11 +165,10 @@ export const useInspectionStore = create<InspectionStore>((set, get) => ({
 
   getStatistics: () => {
     const { inspections } = get();
-    
+
     return {
       total: inspections.length,
       pending: inspections.filter(i => i.status === 'pending' || i.status === 'assigned').length,
-      scheduled: inspections.filter(i => i.status === 'scheduled').length,
       inProgress: inspections.filter(i => i.status === 'document_verification' || i.status === 'in_progress').length,
       completed: inspections.filter(i => i.status === 'completed' || i.status === 'approved' || i.status === 'rejected').length,
       overdue: inspections.filter(i => i.isOverdue).length,

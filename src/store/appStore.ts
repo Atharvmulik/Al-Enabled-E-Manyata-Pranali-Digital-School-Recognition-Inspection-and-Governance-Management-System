@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AppStore {
   isOnline: boolean;
-  isDarkMode: boolean;
   isBiometricEnabled: boolean;
   lastSyncTime: string | null;
   pendingSync: boolean;
@@ -12,8 +11,6 @@ interface AppStore {
   
   // Actions
   setOnlineStatus: (isOnline: boolean) => void;
-  toggleDarkMode: () => void;
-  setDarkMode: (enabled: boolean) => void;
   setBiometricEnabled: (enabled: boolean) => void;
   setLastSyncTime: (time: string) => void;
   setPendingSync: (pending: boolean) => void;
@@ -25,7 +22,6 @@ export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
       isOnline: true,
-      isDarkMode: false,
       isBiometricEnabled: false,
       lastSyncTime: null,
       pendingSync: false,
@@ -35,13 +31,6 @@ export const useAppStore = create<AppStore>()(
         set({ isOnline });
       },
 
-      toggleDarkMode: () => {
-        set(state => ({ isDarkMode: !state.isDarkMode }));
-      },
-
-      setDarkMode: (enabled) => {
-        set({ isDarkMode: enabled });
-      },
 
       setBiometricEnabled: (enabled) => {
         set({ isBiometricEnabled: enabled });
@@ -75,7 +64,6 @@ export const useAppStore = create<AppStore>()(
       name: 'app-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        isDarkMode: state.isDarkMode,
         isBiometricEnabled: state.isBiometricEnabled,
         autoLogoutMinutes: state.autoLogoutMinutes,
       }),

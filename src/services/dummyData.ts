@@ -1,4 +1,4 @@
-import { Inspection, School, TimelineEvent, Document, Evidence, ChecklistSection, FinalReport } from '@/types';
+import { Inspection, School, Document, Evidence, FinalReport } from '@/types';
 
 const schools: School[] = [
   {
@@ -93,164 +93,6 @@ const schools: School[] = [
   },
 ];
 
-const generateTimeline = (inspectionId: string, status: string): TimelineEvent[] => {
-  const baseTimeline: TimelineEvent[] = [
-    {
-      id: `timeline-${inspectionId}-1`,
-      inspectionId,
-      type: 'application_submitted',
-      title: 'Application Submitted',
-      description: 'School submitted inspection application with all required documents.',
-      timestamp: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-      performedBy: 'School Admin',
-      status: 'completed',
-      icon: 'file-document',
-      color: '#10B981',
-    },
-    {
-      id: `timeline-${inspectionId}-2`,
-      inspectionId,
-      type: 'admin_approved',
-      title: 'Admin Approved',
-      description: 'Application reviewed and approved by department admin.',
-      timestamp: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString(),
-      performedBy: 'Department Admin',
-      status: 'completed',
-      icon: 'check-circle',
-      color: '#10B981',
-    },
-    {
-      id: `timeline-${inspectionId}-3`,
-      inspectionId,
-      type: 'assigned_to_officer',
-      title: 'Assigned to Officer',
-      description: 'Inspection assigned to Inspector Rajesh Kumar.',
-      timestamp: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
-      performedBy: 'Supervisor',
-      status: 'completed',
-      icon: 'account-check',
-      color: '#0B3D91',
-    },
-  ];
-
-  if (status === 'pending' || status === 'assigned') {
-    return baseTimeline;
-  }
-
-  baseTimeline.push({
-    id: `timeline-${inspectionId}-4`,
-    inspectionId,
-    type: 'document_verification',
-    title: 'Document Verification',
-    description: 'Officer verified all submitted documents.',
-    timestamp: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-    performedBy: 'Inspector Rajesh Kumar',
-    status: 'completed',
-    icon: 'file-check',
-    color: '#0F766E',
-  });
-
-  if (status === 'document_verification') {
-    return baseTimeline;
-  }
-
-  baseTimeline.push({
-    id: `timeline-${inspectionId}-5`,
-    inspectionId,
-    type: 'visit_scheduled',
-    title: 'Visit Scheduled',
-    description: 'Physical inspection scheduled.',
-    timestamp: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    performedBy: 'Inspector Rajesh Kumar',
-    status: 'completed',
-    icon: 'calendar-check',
-    color: '#C6A700',
-  });
-
-  if (status === 'scheduled') {
-    return baseTimeline;
-  }
-
-  baseTimeline.push({
-    id: `timeline-${inspectionId}-6`,
-    inspectionId,
-    type: 'inspection_started',
-    title: 'Inspection Started',
-    description: 'Physical inspection commenced at school premises.',
-    timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    performedBy: 'Inspector Rajesh Kumar',
-    status: 'completed',
-    icon: 'play-circle',
-    color: '#0B3D91',
-  });
-
-  if (status === 'in_progress') {
-    return baseTimeline;
-  }
-
-  baseTimeline.push(
-    {
-      id: `timeline-${inspectionId}-7`,
-      inspectionId,
-      type: 'inspection_completed',
-      title: 'Inspection Completed',
-      description: 'Physical inspection completed successfully.',
-      timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      performedBy: 'Inspector Rajesh Kumar',
-      status: 'completed',
-      icon: 'check-all',
-      color: '#10B981',
-    },
-    {
-      id: `timeline-${inspectionId}-8`,
-      inspectionId,
-      type: 'report_submitted',
-      title: 'Report Submitted',
-      description: 'Final inspection report submitted for review.',
-      timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      performedBy: 'Inspector Rajesh Kumar',
-      status: 'completed',
-      icon: 'file-send',
-      color: '#0F766E',
-    }
-  );
-
-  if (status === 'completed') {
-    return baseTimeline;
-  }
-
-  if (status === 'approved') {
-    baseTimeline.push({
-      id: `timeline-${inspectionId}-9`,
-      inspectionId,
-      type: 'final_approval',
-      title: 'Final Approval',
-      description: 'Inspection approved by department.',
-      timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      performedBy: 'Department Head',
-      status: 'completed',
-      icon: 'certificate',
-      color: '#10B981',
-    });
-  }
-
-  if (status === 'rejected') {
-    baseTimeline.push({
-      id: `timeline-${inspectionId}-9`,
-      inspectionId,
-      type: 'rejection',
-      title: 'Application Rejected',
-      description: 'Inspection failed. Re-inspection required.',
-      timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      performedBy: 'Department Head',
-      status: 'completed',
-      icon: 'close-circle',
-      color: '#EF4444',
-    });
-  }
-
-  return baseTimeline;
-};
 
 const generateDocuments = (inspectionId: string): Document[] => [
   {
@@ -319,77 +161,6 @@ const generateDocuments = (inspectionId: string): Document[] => [
   },
 ];
 
-const generateChecklist = (inspectionId: string): ChecklistSection[] => [
-  {
-    id: `check-${inspectionId}-infra`,
-    inspectionId,
-    title: 'Infrastructure',
-    description: 'School building and facility assessment',
-    order: 1,
-    isExpanded: true,
-    items: [
-      { id: `item-${inspectionId}-1`, sectionId: `check-${inspectionId}-infra`, title: 'Building structure is sound and well-maintained', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-      { id: `item-${inspectionId}-2`, sectionId: `check-${inspectionId}-infra`, title: 'Classrooms are adequately sized and ventilated', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-      { id: `item-${inspectionId}-3`, sectionId: `check-${inspectionId}-infra`, title: 'Proper lighting and electrical fittings', status: 'pass', isRequired: true, weight: 8, evidenceIds: [] },
-      { id: `item-${inspectionId}-4`, sectionId: `check-${inspectionId}-infra`, title: 'Clean drinking water facilities', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-    ],
-  },
-  {
-    id: `check-${inspectionId}-safety`,
-    inspectionId,
-    title: 'Safety',
-    description: 'Safety and security measures',
-    order: 2,
-    isExpanded: false,
-    items: [
-      { id: `item-${inspectionId}-5`, sectionId: `check-${inspectionId}-safety`, title: 'Fire safety equipment installed and functional', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-      { id: `item-${inspectionId}-6`, sectionId: `check-${inspectionId}-safety`, title: 'Emergency exits clearly marked and accessible', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-      { id: `item-${inspectionId}-7`, sectionId: `check-${inspectionId}-safety`, title: 'First aid kit available and stocked', status: 'needs_improvement', comment: 'Needs more supplies', isRequired: true, weight: 8, evidenceIds: [] },
-      { id: `item-${inspectionId}-8`, sectionId: `check-${inspectionId}-safety`, title: 'CCTV cameras installed at key locations', status: 'pass', isRequired: false, weight: 5, evidenceIds: [] },
-    ],
-  },
-  {
-    id: `check-${inspectionId}-staff`,
-    inspectionId,
-    title: 'Staff Verification',
-    description: 'Teaching and non-teaching staff credentials',
-    order: 3,
-    isExpanded: false,
-    items: [
-      { id: `item-${inspectionId}-9`, sectionId: `check-${inspectionId}-staff`, title: 'All teachers have required qualifications', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-      { id: `item-${inspectionId}-10`, sectionId: `check-${inspectionId}-staff`, title: 'Background verification completed for all staff', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-      { id: `item-${inspectionId}-11`, sectionId: `check-${inspectionId}-staff`, title: 'Adequate student-teacher ratio maintained', status: 'pass', isRequired: true, weight: 8, evidenceIds: [] },
-    ],
-  },
-  {
-    id: `check-${inspectionId}-lab`,
-    inspectionId,
-    title: 'Lab Equipment',
-    description: 'Science and computer laboratory facilities',
-    order: 4,
-    isExpanded: false,
-    items: [
-      { id: `item-${inspectionId}-12`, sectionId: `check-${inspectionId}-lab`, title: 'Science lab equipped with necessary apparatus', status: 'pass', isRequired: true, weight: 8, evidenceIds: [] },
-      { id: `item-${inspectionId}-13`, sectionId: `check-${inspectionId}-lab`, title: 'Computer lab with adequate systems', status: 'pass', isRequired: true, weight: 8, evidenceIds: [] },
-      { id: `item-${inspectionId}-14`, sectionId: `check-${inspectionId}-lab`, title: 'Internet connectivity available', status: 'pass', isRequired: false, weight: 5, evidenceIds: [] },
-      { id: `item-${inspectionId}-15`, sectionId: `check-${inspectionId}-lab`, title: 'Lab safety protocols followed', status: 'pass', isRequired: true, weight: 8, evidenceIds: [] },
-    ],
-  },
-  {
-    id: `check-${inspectionId}-sanitation`,
-    inspectionId,
-    title: 'Sanitation',
-    description: 'Cleanliness and hygiene facilities',
-    order: 5,
-    isExpanded: false,
-    items: [
-      { id: `item-${inspectionId}-16`, sectionId: `check-${inspectionId}-sanitation`, title: 'Clean and functional toilets', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-      { id: `item-${inspectionId}-17`, sectionId: `check-${inspectionId}-sanitation`, title: 'Separate toilets for boys and girls', status: 'pass', isRequired: true, weight: 10, evidenceIds: [] },
-      { id: `item-${inspectionId}-18`, sectionId: `check-${inspectionId}-sanitation`, title: 'Hand washing facilities with soap', status: 'pass', isRequired: true, weight: 8, evidenceIds: [] },
-      { id: `item-${inspectionId}-19`, sectionId: `check-${inspectionId}-sanitation`, title: 'Waste disposal system in place', status: 'needs_improvement', comment: 'Improve segregation', isRequired: true, weight: 8, evidenceIds: [] },
-    ],
-  },
-];
 
 const generateEvidence = (inspectionId: string): Evidence[] => [
   {
@@ -442,10 +213,7 @@ export const dummyInspections: Inspection[] = [
     dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
     isOverdue: false,
     documents: generateDocuments('insp-001'),
-    timeline: generateTimeline('insp-001', 'document_verification'),
     evidence: generateEvidence('insp-001'),
-    checklist: generateChecklist('insp-001'),
-    notes: 'High priority inspection due to previous compliance issues.',
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
   },
@@ -454,17 +222,13 @@ export const dummyInspections: Inspection[] = [
     schoolId: 'school-002',
     school: schools[1],
     officerId: 'officer-001',
-    status: 'scheduled',
+    status: 'assigned',
     priority: 'medium',
     assignedDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-    scheduledDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
     isOverdue: false,
     documents: generateDocuments('insp-002'),
-    timeline: generateTimeline('insp-002', 'scheduled'),
     evidence: [],
-    checklist: generateChecklist('insp-002'),
-    notes: 'Scheduled for tomorrow at 10:00 AM.',
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
   },
@@ -479,10 +243,7 @@ export const dummyInspections: Inspection[] = [
     dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     isOverdue: false,
     documents: generateDocuments('insp-003'),
-    timeline: generateTimeline('insp-003', 'pending'),
     evidence: [],
-    checklist: generateChecklist('insp-003'),
-    notes: 'Urgent inspection required.',
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
   },
@@ -494,14 +255,10 @@ export const dummyInspections: Inspection[] = [
     status: 'in_progress',
     priority: 'medium',
     assignedDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    scheduledDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
     isOverdue: false,
     documents: generateDocuments('insp-004'),
-    timeline: generateTimeline('insp-004', 'in_progress'),
     evidence: generateEvidence('insp-004'),
-    checklist: generateChecklist('insp-004'),
-    notes: 'Inspection in progress. Evidence collection ongoing.',
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
   },
@@ -513,14 +270,11 @@ export const dummyInspections: Inspection[] = [
     status: 'completed',
     priority: 'low',
     assignedDate: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
-    scheduledDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     completedDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
     isOverdue: false,
     documents: generateDocuments('insp-005'),
-    timeline: generateTimeline('insp-005', 'completed'),
     evidence: generateEvidence('insp-005'),
-    checklist: generateChecklist('insp-005'),
     finalReport: {
       id: 'report-005',
       inspectionId: 'insp-005',
@@ -528,13 +282,10 @@ export const dummyInspections: Inspection[] = [
       riskCategory: 'low',
       recommendation: 'approve',
       summary: 'School meets all required standards with minor improvements needed.',
-      strengths: ['Excellent infrastructure', 'Well-qualified staff', 'Good safety measures'],
       weaknesses: ['Minor sanitation issues', 'Limited lab equipment'],
-      actionItems: ['Upgrade waste disposal system', 'Add more science lab apparatus'],
       submittedAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
       submittedBy: 'Inspector Rajesh Kumar',
     },
-    notes: 'Inspection completed successfully. Report approved.',
     createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
   },
@@ -549,10 +300,7 @@ export const dummyInspections: Inspection[] = [
     dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     isOverdue: true,
     documents: generateDocuments('insp-006'),
-    timeline: generateTimeline('insp-006', 'assigned'),
     evidence: [],
-    checklist: generateChecklist('insp-006'),
-    notes: 'Overdue inspection. Immediate action required.',
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
   },

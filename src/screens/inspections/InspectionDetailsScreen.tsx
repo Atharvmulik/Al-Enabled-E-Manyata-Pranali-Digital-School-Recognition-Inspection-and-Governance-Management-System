@@ -121,7 +121,7 @@ export const InspectionDetailsScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'InspectionDetails'>>();
   const { inspectionId } = route.params;
-  
+
   const inspection = useInspectionStore(state => state.getInspectionById(inspectionId));
 
   const headerOpacity = useSharedValue(0);
@@ -150,9 +150,6 @@ export const InspectionDetailsScreen: React.FC = () => {
     );
   }
 
-  const verifiedDocs = inspection.documents.filter(d => d.status === 'verified').length;
-  const totalDocs = inspection.documents.length;
-  const docProgress = totalDocs > 0 ? (verifiedDocs / totalDocs) * 100 : 0;
 
   return (
     <View style={styles.container}>
@@ -168,7 +165,7 @@ export const InspectionDetailsScreen: React.FC = () => {
           >
             <Icon name="arrow-left" size={24} color={Colors.textInverse} />
           </TouchableOpacity>
-          
+
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle} numberOfLines={1}>
               {inspection.school.name}
@@ -195,39 +192,18 @@ export const InspectionDetailsScreen: React.FC = () => {
                 delay={0}
               />
               <ActionButton
-                icon="calendar-clock"
-                label="Schedule"
-                onPress={() => navigation.navigate('ScheduleVisit', { inspectionId })}
-                color={Colors.secondary}
-                delay={100}
-              />
-              <ActionButton
                 icon="play-circle"
                 label="Start"
                 onPress={() => navigation.navigate('InspectionMode', { inspectionId })}
                 color={Colors.success}
-                delay={200}
-              />
-              <ActionButton
-                icon="clipboard-list"
-                label="Checklist"
-                onPress={() => navigation.navigate('DigitalChecklist', { inspectionId })}
-                color={Colors.warning}
-                delay={300}
-              />
-              <ActionButton
-                icon="timeline"
-                label="Timeline"
-                onPress={() => navigation.navigate('Timeline', { inspectionId })}
-                color={Colors.primary}
-                delay={400}
+                delay={100}
               />
               <ActionButton
                 icon="file-send"
                 label="Report"
                 onPress={() => navigation.navigate('FinalReport', { inspectionId })}
                 color={Colors.accentDark}
-                delay={500}
+                delay={200}
               />
             </View>
           </View>
@@ -262,7 +238,7 @@ export const InspectionDetailsScreen: React.FC = () => {
 
           {/* Contact Information */}
           <ExpandableSection title="Contact Information" icon="phone" defaultExpanded={false}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.contactItem}
               onPress={() => Linking.openURL(`tel:${inspection.school.phone}`)}
             >
@@ -270,7 +246,7 @@ export const InspectionDetailsScreen: React.FC = () => {
               <Text style={styles.contactText}>{inspection.school.phone}</Text>
               <Icon name="chevron-right" size={20} color={Colors.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.contactItem}
               onPress={() => Linking.openURL(`mailto:${inspection.school.email}`)}
             >
@@ -280,43 +256,8 @@ export const InspectionDetailsScreen: React.FC = () => {
             </TouchableOpacity>
           </ExpandableSection>
 
-          {/* Document Progress */}
-          <ExpandableSection title="Document Verification" icon="file-document" defaultExpanded={false}>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressText}>
-                  {verifiedDocs} of {totalDocs} documents verified
-                </Text>
-                <Text style={styles.progressPercentage}>{Math.round(docProgress)}%</Text>
-              </View>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { width: `${docProgress}%`, backgroundColor: docProgress === 100 ? Colors.success : Colors.primary }
-                  ]} 
-                />
-              </View>
-            </View>
-            <Button
-              title="Verify Documents"
-              onPress={() => navigation.navigate('DocumentVerification', { inspectionId })}
-              variant="outline"
-              size="small"
-              style={styles.verifyButton}
-            />
-          </ExpandableSection>
 
-          {/* Inspection Notes */}
-          {inspection.notes && (
-            <Card style={styles.notesCard}>
-              <View style={styles.notesHeader}>
-                <Icon name="note-text" size={20} color={Colors.primary} />
-                <Text style={styles.notesTitle}>Notes</Text>
-              </View>
-              <Text style={styles.notesText}>{inspection.notes}</Text>
-            </Card>
-          )}
+
 
           <View style={styles.bottomPadding} />
         </AnimatedView>
@@ -498,27 +439,6 @@ const styles = StyleSheet.create({
   },
   verifyButton: {
     alignSelf: 'flex-start',
-  },
-  notesCard: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-  },
-  notesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  notesTitle: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-    color: Colors.text,
-    marginLeft: Spacing.sm,
-  },
-  notesText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textSecondary,
-    lineHeight: Typography.sizes.sm * 1.6,
   },
   bottomPadding: {
     height: Spacing.xxl,

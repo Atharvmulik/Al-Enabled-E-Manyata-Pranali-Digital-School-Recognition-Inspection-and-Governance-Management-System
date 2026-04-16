@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
-  Animated as RNAnimated,
+  ScrollView,
+  Image,
+  Dimensions,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -16,14 +18,18 @@ import Animated, {
   withRepeat,
   withSequence,
   Easing,
+  FadeInUp,
+  FadeInDown,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { RootStackParamList } from '@/navigation';
 import { useInspectionStore } from '@/store';
-import { Button } from '@/components';
-import { Colors, Spacing, BorderRadius, Typography } from '@/theme';
+import { Card } from '@/components';
+import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/theme';
 
+const { width } = Dimensions.get('window');
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 export const InspectionModeScreen: React.FC = () => {
@@ -33,131 +39,37 @@ export const InspectionModeScreen: React.FC = () => {
   
   const inspection = useInspectionStore(state => state.getInspectionById(inspectionId));
   const updateInspectionStatus = useInspectionStore(state => state.updateInspectionStatus);
-  const addTimelineEvent = useInspectionStore(state => state.addTimelineEvent);
 
-  const [isActive, setIsActive] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [isOfflineMode, setIsOfflineMode] = useState(false);
-  const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'error'>('searching');
-  
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Auto-activate session on mount
+  useEffect(() => {
+    if (inspection && inspection.status !== 'in_progress') {
+      updateInspectionStatus(inspectionId, 'in_progress');
+    }
+  }, [inspectionId]);
 
-  // Pulsing animation for active badge
+  // Pulsing animation for "Live" indicator
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(1);
 
   useEffect(() => {
-    if (isActive) {
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.2, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
-      pulseOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.5, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
-    } else {
-      pulseScale.value = 1;
-      pulseOpacity.value = 1;
-    }
-  }, [isActive]);
-
-  // Timer effect
-  useEffect(() => {
-    if (isActive) {
-      timerRef.current = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [isActive]);
-
-  // Simulate GPS status
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setGpsStatus('active');
-    }, 3000);
-
-    return () => clearTimeout(timeout);
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.2, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    pulseOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.4, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
   }, []);
 
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleStartInspection = () => {
-    setIsActive(true);
-    updateInspectionStatus(inspectionId, 'in_progress');
-    
-    addTimelineEvent(inspectionId, {
-      type: 'inspection_started',
-      title: 'Inspection Started',
-      description: 'Physical inspection commenced at school premises',
-      timestamp: new Date().toISOString(),
-      performedBy: 'Inspector Rajesh Kumar',
-      status: 'completed',
-      icon: 'play-circle',
-      color: Colors.primary,
-    });
-  };
-
-  const handleEndInspection = () => {
-    Alert.alert(
-      'End Inspection',
-      'Are you sure you want to end this inspection?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'End',
-          style: 'destructive',
-          onPress: () => {
-            setIsActive(false);
-            updateInspectionStatus(inspectionId, 'completed');
-            
-            addTimelineEvent(inspectionId, {
-              type: 'inspection_completed',
-              title: 'Inspection Completed',
-              description: `Physical inspection completed. Duration: ${formatTime(elapsedTime)}`,
-              timestamp: new Date().toISOString(),
-              performedBy: 'Inspector Rajesh Kumar',
-              status: 'completed',
-              icon: 'check-all',
-              color: Colors.success,
-            });
-
-            Alert.alert(
-              'Inspection Completed',
-              'What would you like to do next?',
-              [
-                { text: 'Go Back', onPress: () => navigation.goBack() },
-                { text: 'Submit Report', onPress: () => navigation.navigate('FinalReport', { inspectionId }) },
-              ]
-            );
-          },
-        },
-      ]
-    );
-  };
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
@@ -167,6 +79,7 @@ export const InspectionModeScreen: React.FC = () => {
   if (!inspection) {
     return (
       <View style={styles.errorContainer}>
+        <Icon name="alert-circle-outline" size={64} color={Colors.error} />
         <Text style={styles.errorText}>Inspection not found</Text>
       </View>
     );
@@ -175,175 +88,125 @@ export const InspectionModeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Inspection Mode</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
+            <Icon name="chevron-left" size={28} color={Colors.textInverse} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Evaluation Hub</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </LinearGradient>
 
-      {/* Active Status Badge */}
-      <View style={styles.statusContainer}>
-        {isActive ? (
-          <AnimatedView style={[styles.activeBadge, pulseStyle]}>
-            <View style={styles.activeIndicator} />
-            <Text style={styles.activeText}>INSPECTION ACTIVE</Text>
-          </AnimatedView>
-        ) : (
-          <View style={styles.inactiveBadge}>
-            <Icon name="pause-circle" size={20} color={Colors.textMuted} />
-            <Text style={styles.inactiveText}>READY TO START</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Timer Display */}
-      <View style={styles.timerContainer}>
-        <Text style={styles.timerLabel}>Elapsed Time</Text>
-        <Text style={styles.timerValue}>{formatTime(elapsedTime)}</Text>
-      </View>
-
-      {/* Status Indicators */}
-      <View style={styles.indicatorsContainer}>
-        {/* GPS Status */}
-        <View style={styles.indicatorCard}>
-          <View style={[
-            styles.indicatorIcon,
-            { backgroundColor: gpsStatus === 'active' ? Colors.successLight : Colors.warningLight }
-          ]}>
-            <Icon 
-              name="crosshairs-gps" 
-              size={28} 
-              color={gpsStatus === 'active' ? Colors.success : Colors.warning} 
-            />
-          </View>
-          <Text style={styles.indicatorLabel}>GPS</Text>
-          <Text style={[
-            styles.indicatorValue,
-            { color: gpsStatus === 'active' ? Colors.success : Colors.warning }
-          ]}>
-            {gpsStatus === 'searching' ? 'Searching...' : gpsStatus === 'active' ? 'Active' : 'Error'}
-          </Text>
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Live Indicator */}
+        <View style={styles.liveContainer}>
+          <AnimatedView style={[styles.liveDot, pulseStyle]} />
+          <Text style={styles.liveText}>LIVE EVIDENCE SESSION</Text>
         </View>
 
-        {/* Offline Mode */}
-        <TouchableOpacity 
-          style={styles.indicatorCard}
-          onPress={() => setIsOfflineMode(!isOfflineMode)}
-        >
-          <View style={[
-            styles.indicatorIcon,
-            { backgroundColor: isOfflineMode ? Colors.infoLight : Colors.background }
-          ]}>
-            <Icon 
-              name={isOfflineMode ? 'wifi-off' : 'wifi'} 
-              size={28} 
-              color={isOfflineMode ? Colors.info : Colors.textMuted} 
-            />
+        {/* Action Cards */}
+        <View style={styles.actionsSection}>
+          <Text style={styles.sectionLabel}>Capture Evidence</Text>
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity 
+              activeOpacity={0.8}
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('EvidenceUpload', { inspectionId })}
+            >
+              <LinearGradient
+                colors={['#E0F2FE', '#BAE6FD']}
+                style={styles.actionCardGradient}
+              >
+                <View style={styles.actionIconWrapper}>
+                  <Icon name="camera-plus" size={32} color={Colors.info} />
+                </View>
+                <Text style={styles.actionCardLabel}>Take Photo</Text>
+                <Text style={styles.actionCardSub}>High-res capture</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              activeOpacity={0.8}
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('EvidenceUpload', { inspectionId })}
+            >
+              <LinearGradient
+                colors={['#FEF3C7', '#FDE68A']}
+                style={styles.actionCardGradient}
+              >
+                <View style={styles.actionIconWrapper}>
+                  <Icon name="video-plus" size={32} color={Colors.warning} />
+                </View>
+                <Text style={styles.actionCardLabel}>Record Video</Text>
+                <Text style={styles.actionCardSub}>UHD Recording</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.indicatorLabel}>Mode</Text>
-          <Text style={[
-            styles.indicatorValue,
-            { color: isOfflineMode ? Colors.info : Colors.textMuted }
-          ]}>
-            {isOfflineMode ? 'Offline' : 'Online'}
-          </Text>
-        </TouchableOpacity>
+        </View>
 
-        {/* Session Status */}
-        <View style={styles.indicatorCard}>
-          <View style={[
-            styles.indicatorIcon,
-            { backgroundColor: isActive ? Colors.successLight : Colors.background }
-          ]}>
-            <Icon 
-              name="shield-check" 
-              size={28} 
-              color={isActive ? Colors.success : Colors.textMuted} 
-            />
+        {/* Recently Captured */}
+        <View style={styles.evidenceSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Recently Captured</Text>
+            <Text style={styles.evidenceCount}>{inspection.evidence.length} Items</Text>
           </View>
-          <Text style={styles.indicatorLabel}>Session</Text>
-          <Text style={[
-            styles.indicatorValue,
-            { color: isActive ? Colors.success : Colors.textMuted }
-          ]}>
-            {isActive ? 'Secure' : 'Idle'}
-          </Text>
+          
+          {inspection.evidence.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.evidenceList}
+            >
+              {inspection.evidence.map((item, index) => (
+                <AnimatedView 
+                  key={item.id} 
+                  entering={FadeInDown.delay(index * 100)}
+                  style={styles.evidenceCard}
+                >
+                  <Image source={{ uri: item.url }} style={styles.evidenceImage} />
+                  <View style={styles.evidenceTag}>
+                    <Icon 
+                      name={item.type === 'photo' ? 'camera' : 'video'} 
+                      size={12} 
+                      color={Colors.textInverse} 
+                    />
+                  </View>
+                </AnimatedView>
+              ))}
+            </ScrollView>
+          ) : (
+            <Card style={styles.emptyCard}>
+              <Icon name="image-off-outline" size={40} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No evidence captured yet</Text>
+              <Text style={styles.emptySub}>Tap Take Photo or Record Video above</Text>
+            </Card>
+          )}
         </View>
-      </View>
 
-      {/* Quick Actions */}
-      <View style={styles.actionsContainer}>
-        <Text style={styles.actionsTitle}>Quick Actions</Text>
-        
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('EvidenceUpload', { inspectionId })}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: Colors.infoLight }]}>
-              <Icon name="camera" size={28} color={Colors.info} />
-            </View>
-            <Text style={styles.actionLabel}>Photo</Text>
-          </TouchableOpacity>
+        {/* Helper Card */}
+        <Card style={styles.helperCard}>
+          <View style={styles.helperIcon}>
+            <Icon name="information-variant" size={24} color={Colors.primary} />
+          </View>
+          <View style={styles.helperContent}>
+            <Text style={styles.helperTitle}>Inspector Guidelines</Text>
+            <Text style={styles.helperText}>
+              Ensure all physical infrastructure and safety measures are clearly visible in the evidence.
+            </Text>
+          </View>
+        </Card>
 
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('EvidenceUpload', { inspectionId })}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: Colors.warningLight }]}>
-              <Icon name="video" size={28} color={Colors.warning} />
-            </View>
-            <Text style={styles.actionLabel}>Video</Text>
-          </TouchableOpacity>
+        <View style={styles.bottomPadding} />
+      </ScrollView>
 
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('DigitalChecklist', { inspectionId })}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: Colors.successLight }]}>
-              <Icon name="clipboard-list" size={28} color={Colors.success} />
-            </View>
-            <Text style={styles.actionLabel}>Checklist</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('Timeline', { inspectionId })}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: Colors.primaryLight }]}>
-              <Icon name="timeline" size={28} color={Colors.primary} />
-            </View>
-            <Text style={styles.actionLabel}>Timeline</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Main Action Button */}
-      <View style={styles.mainActionContainer}>
-        {!isActive ? (
-          <Button
-            title="Start Inspection"
-            onPress={handleStartInspection}
-            size="large"
-            style={styles.startButton}
-          />
-        ) : (
-          <Button
-            title="End Inspection"
-            onPress={handleEndInspection}
-            variant="danger"
-            size="large"
-            style={styles.endButton}
-          />
-        )}
-      </View>
-
-      {/* School Info Footer */}
+      {/* School Name Footer */}
       <View style={styles.footer}>
-        <Icon name="school" size={20} color={Colors.textMuted} />
-        <Text style={styles.footerText} numberOfLines={1}>
+        <Text style={styles.footerLabel}>Evaluation for</Text>
+        <Text style={styles.footerSchool} numberOfLines={1}>
           {inspection.school.name}
         </Text>
       </View>
@@ -357,156 +220,214 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
+    paddingTop: 50,
+    paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomLeftRadius: BorderRadius.xl,
+    borderBottomRightRadius: BorderRadius.xl,
+    ...Shadows.md,
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 50,
-    paddingBottom: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
-    color: Colors.text,
-  },
-  statusContainer: {
-    alignItems: 'center',
-    paddingVertical: Spacing.lg,
-  },
-  activeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.success,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-  },
-  activeIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.textInverse,
-    marginRight: Spacing.sm,
-  },
-  activeText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.bold,
     color: Colors.textInverse,
   },
-  inactiveBadge: {
+  scrollContent: {
+    flex: 1,
+  },
+  liveContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.border,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-  },
-  inactiveText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.bold,
-    color: Colors.textMuted,
-    marginLeft: Spacing.sm,
-  },
-  timerContainer: {
-    alignItems: 'center',
-    paddingVertical: Spacing.lg,
-  },
-  timerLabel: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  timerValue: {
-    fontSize: Typography.sizes['4xl'],
-    fontWeight: Typography.weights.bold,
-    color: Colors.primary,
-    fontVariant: ['tabular-nums'],
-  },
-  indicatorsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  indicatorCard: {
-    alignItems: 'center',
-  },
-  indicatorIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
   },
-  indicatorLabel: {
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.error,
+    marginRight: Spacing.sm,
+  },
+  liveText: {
     fontSize: Typography.sizes.xs,
-    color: Colors.textMuted,
-    marginBottom: 2,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textSecondary,
+    letterSpacing: 1.2,
   },
-  indicatorValue: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
+  actionsSection: {
+    padding: Spacing.lg,
   },
-  actionsContainer: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-  },
-  actionsTitle: {
+  sectionLabel: {
     fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.bold,
     color: Colors.text,
     marginBottom: Spacing.md,
   },
   actionsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  actionButton: {
+  actionCard: {
+    width: (width - Spacing.lg * 2 - Spacing.md) / 2,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    ...Shadows.md,
+  },
+  actionCardGradient: {
+    padding: Spacing.lg,
     alignItems: 'center',
-    width: '22%',
+    justifyContent: 'center',
+  },
+  actionIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+    ...Shadows.sm,
+  },
+  actionCardLabel: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold,
+    color: Colors.text,
+  },
+  actionCardSub: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  evidenceSection: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.md,
   },
-  actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.lg,
+  evidenceCount: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.primary,
+    fontWeight: Typography.weights.semibold,
+  },
+  evidenceList: {
+    paddingRight: Spacing.lg,
+  },
+  evidenceCard: {
+    width: 100,
+    height: 100,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surface,
+    marginRight: Spacing.md,
+    overflow: 'hidden',
+    ...Shadows.sm,
+  },
+  evidenceImage: {
+    width: '100%',
+    height: '100%',
+  },
+  evidenceTag: {
+    position: 'absolute',
+    bottom: Spacing.xs,
+    right: Spacing.xs,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 4,
+    borderRadius: 4,
+  },
+  emptyCard: {
+    padding: Spacing.xl,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xs,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
   },
-  actionLabel: {
+  emptyText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textMuted,
+    marginTop: Spacing.md,
+  },
+  emptySub: {
     fontSize: Typography.sizes.xs,
-    color: Colors.text,
-    textAlign: 'center',
+    color: Colors.textMuted,
+    marginTop: 4,
   },
-  mainActionContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-  },
-  startButton: {
-    backgroundColor: Colors.success,
-  },
-  endButton: {},
-  footer: {
+  helperCard: {
+    marginHorizontal: Spacing.lg,
+    padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.md,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 0,
+    ...Shadows.sm,
+  },
+  helperIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.full,
     backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  helperContent: {
+    flex: 1,
+  },
+  helperTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: Colors.text,
+  },
+  helperText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  bottomPadding: {
+    height: 100,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.surface,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+    alignItems: 'center',
+    ...Shadows.lg,
   },
-  footerText: {
+  footerLabel: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+  },
+  footerSchool: {
     fontSize: Typography.sizes.sm,
-    color: Colors.textSecondary,
-    marginLeft: Spacing.sm,
-    maxWidth: '80%',
+    fontWeight: Typography.weights.bold,
+    color: Colors.text,
+    marginTop: 2,
   },
   errorContainer: {
     flex: 1,
@@ -517,6 +438,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: Typography.sizes.lg,
     color: Colors.text,
+    marginTop: Spacing.md,
   },
 });
 

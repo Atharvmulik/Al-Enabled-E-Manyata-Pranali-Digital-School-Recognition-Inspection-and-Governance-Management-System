@@ -124,14 +124,6 @@ function getTimeAgo(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-const filterOptions: { label: string; value: NotificationType | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Assignments', value: 'assignment' },
-  { label: 'Reminders', value: 'reminder' },
-  { label: 'Alerts', value: 'alert' },
-  { label: 'Updates', value: 'update' },
-  { label: 'System', value: 'system' },
-];
 
 export const NotificationsScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -145,7 +137,6 @@ export const NotificationsScreen: React.FC = () => {
   } = useNotificationStore();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<NotificationType | 'all'>('all');
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -153,9 +144,6 @@ export const NotificationsScreen: React.FC = () => {
     setRefreshing(false);
   }, [fetchNotifications]);
 
-  const filteredNotifications = notifications.filter(n => 
-    selectedFilter === 'all' || n.type === selectedFilter
-  );
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -182,36 +170,10 @@ export const NotificationsScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Filter Chips */}
-      <View style={styles.filterContainer}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={filterOptions}
-          keyExtractor={item => item.value}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                selectedFilter === item.value && styles.filterChipActive
-              ]}
-              onPress={() => setSelectedFilter(item.value)}
-            >
-              <Text style={[
-                styles.filterChipText,
-                selectedFilter === item.value && styles.filterChipTextActive
-              ]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          )}
-          contentContainerStyle={styles.filterList}
-        />
-      </View>
 
       {/* Notifications List */}
       <FlatList
-        data={filteredNotifications}
+        data={notifications}
         keyExtractor={item => item.id}
         renderItem={({ item, index }) => (
           <NotificationItem
@@ -263,36 +225,6 @@ const styles = StyleSheet.create({
   markAllRead: {
     fontSize: Typography.sizes.sm,
     color: Colors.primary,
-    fontWeight: Typography.weights.medium,
-  },
-  filterContainer: {
-    backgroundColor: Colors.surface,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  filterList: {
-    paddingHorizontal: Spacing.lg,
-  },
-  filterChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.full,
-    marginRight: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterChipText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.text,
-  },
-  filterChipTextActive: {
-    color: Colors.textInverse,
     fontWeight: Typography.weights.medium,
   },
   listContent: {

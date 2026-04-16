@@ -30,11 +30,10 @@ export interface School {
   };
 }
 
-export type InspectionStatus = 
+export type InspectionStatus =
   | 'pending'
   | 'assigned'
   | 'document_verification'
-  | 'scheduled'
   | 'in_progress'
   | 'completed'
   | 'approved'
@@ -51,15 +50,11 @@ export interface Inspection {
   status: InspectionStatus;
   priority: PriorityLevel;
   assignedDate: string;
-  scheduledDate?: string;
   completedDate?: string;
   dueDate: string;
   documents: Document[];
-  checklist: ChecklistSection[];
-  timeline: TimelineEvent[];
   evidence: Evidence[];
   finalReport?: FinalReport;
-  notes: string;
   isOverdue: boolean;
   createdAt: string;
   updatedAt: string;
@@ -83,53 +78,6 @@ export interface Document {
   size: number;
 }
 
-export interface ChecklistItem {
-  id: string;
-  sectionId: string;
-  title: string;
-  description?: string;
-  status: 'pass' | 'fail' | 'needs_improvement' | 'not_checked';
-  comment?: string;
-  evidenceIds: string[];
-  isRequired: boolean;
-  weight: number;
-}
-
-export interface ChecklistSection {
-  id: string;
-  inspectionId: string;
-  title: string;
-  description?: string;
-  items: ChecklistItem[];
-  order: number;
-  isExpanded: boolean;
-}
-
-export type TimelineEventType = 
-  | 'application_submitted'
-  | 'admin_approved'
-  | 'assigned_to_officer'
-  | 'document_verification'
-  | 'visit_scheduled'
-  | 'inspection_started'
-  | 'inspection_completed'
-  | 'report_submitted'
-  | 'final_approval'
-  | 'rejection'
-  | 're_inspection_requested';
-
-export interface TimelineEvent {
-  id: string;
-  inspectionId: string;
-  type: TimelineEventType;
-  title: string;
-  description?: string;
-  timestamp: string;
-  performedBy: string;
-  status: 'completed' | 'pending' | 'in_progress';
-  icon?: string;
-  color?: string;
-}
 
 export type EvidenceType = 'photo' | 'video';
 export type EvidenceTag = 'classroom' | 'lab' | 'safety' | 'infrastructure' | 'staff' | 'sanitation' | 'other';
@@ -163,9 +111,7 @@ export interface FinalReport {
   riskCategory: RiskCategory;
   recommendation: RecommendationType;
   summary: string;
-  strengths: string[];
   weaknesses: string[];
-  actionItems: string[];
   submittedAt: string;
   submittedBy: string;
 }

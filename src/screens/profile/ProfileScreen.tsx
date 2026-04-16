@@ -81,7 +81,6 @@ export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
-  const { isDarkMode, toggleDarkMode } = useAppStore();
 
   const handleLogout = () => {
     Alert.alert(
@@ -119,13 +118,6 @@ export const ProfileScreen: React.FC = () => {
         style={styles.header}
       >
         <AnimatedView style={[styles.headerContent, headerAnimatedStyle]}>
-          {/* Settings Button */}
-          <TouchableOpacity 
-            style={styles.settingsButton}
-            onPress={() => navigation.navigate('Settings')}
-          >
-            <Icon name="cog" size={24} color={Colors.textInverse} />
-          </TouchableOpacity>
 
           {/* Profile Image */}
           <View style={styles.profileImageContainer}>
@@ -178,15 +170,6 @@ export const ProfileScreen: React.FC = () => {
           delay={100}
         />
 
-        {/* Preferences Section */}
-        <Text style={styles.sectionTitle}>Preferences</Text>
-        <MenuItem
-          icon={isDarkMode ? 'weather-night' : 'white-balance-sunny'}
-          label="Dark Mode"
-          value={isDarkMode ? 'On' : 'Off'}
-          onPress={toggleDarkMode}
-          delay={150}
-        />
 
 
         {/* Security Section */}
@@ -197,34 +180,7 @@ export const ProfileScreen: React.FC = () => {
           onPress={() => {}}
           delay={250}
         />
-        <MenuItem
-          icon="shield-check"
-          label="Two-Factor Authentication"
-          value="Enabled"
-          onPress={() => {}}
-          delay={300}
-        />
 
-        {/* Support Section */}
-        <Text style={styles.sectionTitle}>Support</Text>
-        <MenuItem
-          icon="help-circle"
-          label="Help Center"
-          onPress={() => {}}
-          delay={350}
-        />
-        <MenuItem
-          icon="file-document"
-          label="Terms of Service"
-          onPress={() => {}}
-          delay={400}
-        />
-        <MenuItem
-          icon="shield-lock"
-          label="Privacy Policy"
-          onPress={() => {}}
-          delay={450}
-        />
 
         {/* Logout Button */}
         <Button

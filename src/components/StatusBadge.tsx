@@ -15,7 +15,6 @@ const statusConfig: Record<string, { color: string; bgColor: string; icon: strin
   pending: { color: Colors.warning, bgColor: Colors.warningLight, icon: 'clock-outline', label: 'Pending' },
   assigned: { color: Colors.info, bgColor: Colors.infoLight, icon: 'account-check', label: 'Assigned' },
   document_verification: { color: Colors.primary, bgColor: Colors.infoLight, icon: 'file-check', label: 'Doc Verification' },
-  scheduled: { color: Colors.secondary, bgColor: '#E0F2F1', icon: 'calendar-check', label: 'Scheduled' },
   in_progress: { color: Colors.primary, bgColor: Colors.infoLight, icon: 'progress-clock', label: 'In Progress' },
   completed: { color: Colors.success, bgColor: Colors.successLight, icon: 'check-circle', label: 'Completed' },
   approved: { color: Colors.success, bgColor: Colors.successLight, icon: 'certificate', label: 'Approved' },

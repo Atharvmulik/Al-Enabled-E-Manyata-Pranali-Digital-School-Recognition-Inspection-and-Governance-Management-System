@@ -29,7 +29,6 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 const statusFilters: { label: string; value: InspectionStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
   { label: 'Pending', value: 'pending' },
-  { label: 'Scheduled', value: 'scheduled' },
   { label: 'In Progress', value: 'in_progress' },
   { label: 'Completed', value: 'completed' },
 ];
@@ -95,9 +94,6 @@ const InspectionItem: React.FC<{ inspection: Inspection; index: number }> = ({
           <View style={styles.metaItem}>
             <Icon name="calendar" size={16} color={Colors.textMuted} />
             <Text style={styles.metaText}>
-              {inspection.scheduledDate 
-                ? new Date(inspection.scheduledDate).toLocaleDateString()
-                : 'Not scheduled'}
             </Text>
           </View>
           <View style={styles.metaItem}>
@@ -125,7 +121,7 @@ const InspectionItem: React.FC<{ inspection: Inspection; index: number }> = ({
 export const InspectionsScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { inspections, isLoading, fetchInspections } = useInspectionStore();
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<InspectionStatus | 'all'>('all');
@@ -139,14 +135,14 @@ export const InspectionsScreen: React.FC = () => {
   }, [fetchInspections]);
 
   const filteredInspections = inspections.filter(inspection => {
-    const matchesSearch = 
+    const matchesSearch =
       inspection.school.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       inspection.school.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       inspection.id.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesStatus = selectedStatus === 'all' || inspection.status === selectedStatus;
     const matchesPriority = selectedPriority === 'all' || inspection.priority === selectedPriority;
-    
+
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
@@ -201,14 +197,14 @@ export const InspectionsScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Inspections</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.filterButton}
           onPress={() => setShowFilters(!showFilters)}
         >
-          <Icon 
-            name={showFilters ? 'filter-variant-minus' : 'filter-variant'} 
-            size={24} 
-            color={Colors.primary} 
+          <Icon
+            name={showFilters ? 'filter-variant-minus' : 'filter-variant'}
+            size={24}
+            color={Colors.primary}
           />
         </TouchableOpacity>
       </View>

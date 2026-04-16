@@ -15,14 +15,10 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>;
   InspectionDetails: { inspectionId: string };
   DocumentVerification: { inspectionId: string };
-  ScheduleVisit: { inspectionId: string };
   InspectionMode: { inspectionId: string };
   EvidenceUpload: { inspectionId: string };
-  DigitalChecklist: { inspectionId: string };
-  Timeline: { inspectionId: string };
   FinalReport: { inspectionId: string };
   EditProfile: undefined;
-  Settings: undefined;
 };
 
 // Inspection Stack Navigator Params (if needed)
@@ -30,16 +26,13 @@ export type InspectionStackParamList = {
   InspectionList: undefined;
   InspectionDetails: { inspectionId: string };
   DocumentVerification: { inspectionId: string };
-  ScheduleVisit: { inspectionId: string };
   InspectionMode: { inspectionId: string };
   EvidenceUpload: { inspectionId: string };
-  DigitalChecklist: { inspectionId: string };
-  Timeline: { inspectionId: string };
   FinalReport: { inspectionId: string };
 };
 
 declare global {
   namespace ReactNavigation {
-    interface RootParamList extends RootStackParamList {}
+    interface RootParamList extends RootStackParamList { }
   }
 }

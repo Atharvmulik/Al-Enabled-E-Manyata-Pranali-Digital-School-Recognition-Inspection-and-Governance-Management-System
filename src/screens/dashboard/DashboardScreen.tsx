@@ -321,20 +321,12 @@ export const DashboardScreen: React.FC = () => {
               delay={100}
             />
             <StatCard
-              title="Scheduled"
-              value={stats.scheduled}
-              icon="calendar-check"
-              color={Colors.secondary}
-              gradient={[Colors.secondary, Colors.secondaryDark]}
-              delay={200}
-            />
-            <StatCard
               title="Completed"
               value={stats.completed}
               icon="check-circle"
               color={Colors.success}
               gradient={[Colors.success, '#059669']}
-              delay={300}
+              delay={200}
             />
           </View>
         </View>
@@ -413,11 +405,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    paddingTop: 50,
+    paddingTop: 80,
     paddingBottom: Spacing.lg,
     paddingHorizontal: Spacing.lg,
     borderBottomLeftRadius: BorderRadius.xl,
     borderBottomRightRadius: BorderRadius.xl,
+    ...Shadows.md,
   },
   headerContent: {
     flex: 1,

@@ -68,15 +68,12 @@ export const FinalReportScreen: React.FC = () => {
   
   const inspection = useInspectionStore(state => state.getInspectionById(inspectionId));
   const submitFinalReport = useInspectionStore(state => state.submitFinalReport);
-  const addTimelineEvent = useInspectionStore(state => state.addTimelineEvent);
 
   const [overallScore, setOverallScore] = useState(70);
   const [selectedRisk, setSelectedRisk] = useState<RiskCategory>('low');
   const [selectedRecommendation, setSelectedRecommendation] = useState<RecommendationType>('approve');
   const [summary, setSummary] = useState('');
-  const [strengths, setStrengths] = useState<string[]>(['']);
   const [weaknesses, setWeaknesses] = useState<string[]>(['']);
-  const [actionItems, setActionItems] = useState<string[]>(['']);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,27 +85,15 @@ export const FinalReportScreen: React.FC = () => {
     );
   }
 
-  const handleAddField = (type: 'strength' | 'weakness' | 'action') => {
-    if (type === 'strength') setStrengths([...strengths, '']);
+  const handleAddField = (type: 'weakness') => {
     if (type === 'weakness') setWeaknesses([...weaknesses, '']);
-    if (type === 'action') setActionItems([...actionItems, '']);
   };
 
-  const handleUpdateField = (type: 'strength' | 'weakness' | 'action', index: number, value: string) => {
-    if (type === 'strength') {
-      const updated = [...strengths];
-      updated[index] = value;
-      setStrengths(updated);
-    }
+  const handleUpdateField = (type: 'weakness', index: number, value: string) => {
     if (type === 'weakness') {
       const updated = [...weaknesses];
       updated[index] = value;
       setWeaknesses(updated);
-    }
-    if (type === 'action') {
-      const updated = [...actionItems];
-      updated[index] = value;
-      setActionItems(updated);
     }
   };
 
@@ -128,23 +113,11 @@ export const FinalReportScreen: React.FC = () => {
       riskCategory: selectedRisk,
       recommendation: selectedRecommendation,
       summary,
-      strengths: strengths.filter(s => s.trim()),
       weaknesses: weaknesses.filter(w => w.trim()),
-      actionItems: actionItems.filter(a => a.trim()),
       submittedAt: new Date().toISOString(),
       submittedBy: 'Inspector Rajesh Kumar',
     });
 
-    addTimelineEvent(inspectionId, {
-      type: 'report_submitted',
-      title: 'Report Submitted',
-      description: `Final inspection report submitted with ${selectedRecommendation} recommendation`,
-      timestamp: new Date().toISOString(),
-      performedBy: 'Inspector Rajesh Kumar',
-      status: 'completed',
-      icon: 'file-send',
-      color: Colors.primary,
-    });
 
     setIsSubmitting(false);
     setShowConfirmation(true);
@@ -255,26 +228,6 @@ export const FinalReportScreen: React.FC = () => {
           onChangeText={setSummary}
         />
 
-        {/* Strengths */}
-        <Text style={styles.sectionLabel}>Strengths</Text>
-        {strengths.map((strength, index) => (
-          <View key={index} style={styles.listItemContainer}>
-            <Icon name="check-circle" size={20} color={Colors.success} />
-            <TextInput
-              style={styles.listItemInput}
-              placeholder="Add a strength..."
-              value={strength}
-              onChangeText={(value) => handleUpdateField('strength', index, value)}
-            />
-          </View>
-        ))}
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => handleAddField('strength')}
-        >
-          <Icon name="plus" size={20} color={Colors.primary} />
-          <Text style={styles.addButtonText}>Add Strength</Text>
-        </TouchableOpacity>
 
         {/* Weaknesses */}
         <Text style={styles.sectionLabel}>Areas for Improvement</Text>
@@ -297,26 +250,6 @@ export const FinalReportScreen: React.FC = () => {
           <Text style={styles.addButtonText}>Add Area</Text>
         </TouchableOpacity>
 
-        {/* Action Items */}
-        <Text style={styles.sectionLabel}>Action Items</Text>
-        {actionItems.map((item, index) => (
-          <View key={index} style={styles.listItemContainer}>
-            <Icon name="format-list-checks" size={20} color={Colors.primary} />
-            <TextInput
-              style={styles.listItemInput}
-              placeholder="Add an action item..."
-              value={item}
-              onChangeText={(value) => handleUpdateField('action', index, value)}
-            />
-          </View>
-        ))}
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => handleAddField('action')}
-        >
-          <Icon name="plus" size={20} color={Colors.primary} />
-          <Text style={styles.addButtonText}>Add Action Item</Text>
-        </TouchableOpacity>
 
         {/* Submit Button */}
         <Button
