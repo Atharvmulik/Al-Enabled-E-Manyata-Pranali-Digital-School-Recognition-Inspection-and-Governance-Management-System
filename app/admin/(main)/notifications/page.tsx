@@ -114,7 +114,9 @@ export default function NotificationsPage() {
 
     async function loadInspectors() {
         try {
-            const data = await apiFetch<{ inspectors: Inspector[] }>("/api/admin/inspections/inspectors");
+            const data = await apiFetch<{ inspectors: Inspector[] }>(
+                "/api/admin/notifications/inspectors"
+            );
             setInspectors(data.inspectors);
         } catch {
             setInspectors([]);
@@ -184,10 +186,19 @@ export default function NotificationsPage() {
 
                     recipient_label:
                         target === "Inspectors"
-                            ? (selectedInspector ? "Inspector" : "All Inspectors")
-                            : (selectedSchools.length > 0
-                                ? `${selectedSchools.length} schools selected`
-                                : "All Schools"),
+                            ? (
+                                selectedInspector
+                                    ? (
+                                        inspectors.find(i => i.inspector_id === selectedInspector)?.name
+                                        || "Inspector"
+                                    )
+                                    : "All Inspectors"
+                            )
+                            : (
+                                selectedSchools.length > 0
+                                    ? selectedSchools.map(s => s.name).join(", ")
+                                    : "All Schools"
+                            ),
                 }),
             });
 

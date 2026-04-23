@@ -18,7 +18,6 @@ type SchoolListItem = {
     udise_number:       string;
     district:           string;
     status:             string;
-    application_status?: string;
     last_updated?:       string;
 };
 
@@ -47,14 +46,6 @@ const statusColors: Record<string, string> = {
     Active:  "bg-emerald-50 text-emerald-700 border-emerald-200",
     Pending: "bg-amber-50 text-amber-700 border-amber-200",
     Blocked: "bg-rose-50 text-rose-700 border-rose-200",
-};
-
-const appStatusColors: Record<string, string> = {
-    Submitted:     "bg-blue-50 text-blue-700",
-    "Under Review":"bg-indigo-50 text-indigo-700",
-    Approved:      "bg-emerald-50 text-emerald-700",
-    Rejected:      "bg-rose-50 text-rose-700",
-    Draft:         "bg-slate-100 text-slate-500",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -152,11 +143,11 @@ export default function SchoolsPage() {
 
     const totalPages = Math.ceil(total / perPage);
 
-    // ── Computed stats ──────────────────────────────────────────────────────
-    const newRequestsCount        = schools.filter(s => s.application_status === "Submitted").length;
-    const underReviewCount        = schools.filter(s => s.application_status === "Under Review").length;
-    const pendingInspectionCount  = schools.filter(s => s.status === "Pending").length;
-    const grantedCount            = schools.filter(s => s.status === "Active").length;
+    // ── Computed stats (profile only) ───────────────────────────────────────
+    const totalSchools      = total;
+    const activeSchools     = schools.filter(s => s.status === "Active").length;
+    const pendingSchools    = schools.filter(s => s.status === "Pending").length;
+    const blockedSchools    = schools.filter(s => s.status === "Blocked").length;
 
     if (!currentUser) return null;
 
@@ -183,7 +174,7 @@ export default function SchoolsPage() {
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">School Management</h1>
                     <p className="text-slate-500 text-sm mt-1">
-                        Manage registered schools, verify credentials, and monitor governance status.
+                        Manage registered schools, verify profiles, and monitor governance status.
                     </p>
                 </div>
                 <button
@@ -196,13 +187,13 @@ export default function SchoolsPage() {
                 </button>
             </div>
 
-            {/* ── Stats ── */}
+            {/* ── Profile‑based Stats ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: "New Requests",         count: newRequestsCount,       icon: FileText,    color: "text-blue-600",    bg: "bg-blue-50",    border: "border-blue-100"   },
-                    { label: "Under Review",          count: underReviewCount,       icon: Clock,       color: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-100"  },
-                    { label: "Pending Inspection",    count: pendingInspectionCount, icon: AlertCircle, color: "text-indigo-600",  bg: "bg-indigo-50",  border: "border-indigo-100" },
-                    { label: "Granted Recognition",   count: grantedCount,           icon: CheckCircle2,color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100"},
+                    { label: "Total Schools",         count: totalSchools,      icon: Building2,    color: "text-slate-600",  bg: "bg-slate-50",    border: "border-slate-100"   },
+                    { label: "Active Schools",        count: activeSchools,     icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100"  },
+                    { label: "Pending Verification",  count: pendingSchools,    icon: Clock,        color: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-100"  },
+                    { label: "Blocked Schools",       count: blockedSchools,    icon: Ban,          color: "text-rose-600",    bg: "bg-rose-50",    border: "border-rose-100"   },
                 ].map((stat, i) => (
                     <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className={`w-10 h-10 rounded-xl ${stat.bg} border ${stat.border} flex items-center justify-center mb-4`}>
@@ -215,28 +206,47 @@ export default function SchoolsPage() {
             </div>
 
             {/* ── Filters ── */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search by School Name or UDISE Code…"
-                        value={searchTerm}
-                        onChange={handleSearch}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    />
-                </div>
-                <div className="flex gap-3">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                <div className="flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input
+                            type="text"
+                            placeholder="Search by school name or UDISE code..."
+                            value={searchTerm}
+                            onChange={handleSearch}
+                            className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                        />
+                    </div>
+                    <select
+                        value={selectedDistrict}
+                        onChange={(e) => setSelectedDistrict(e.target.value)}
+                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
+                    >
+                        <option value="">All Districts</option>
+                        {/* Populate districts dynamically if needed */}
+                    </select>
                     <select
                         value={selectedStatus}
-                        onChange={e => { setSelectedStatus(e.target.value); setPage(1); }}
-                        className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+                        onChange={(e) => setSelectedStatus(e.target.value)}
+                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
                     >
                         <option value="">All Statuses</option>
                         <option value="Active">Active</option>
                         <option value="Pending">Pending</option>
                         <option value="Blocked">Blocked</option>
                     </select>
+                    <button
+                        onClick={() => {
+                            setSearchTerm("");
+                            setSelectedDistrict("");
+                            setSelectedStatus("");
+                            setPage(1);
+                        }}
+                        className="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                    >
+                        Clear Filters
+                    </button>
                 </div>
             </div>
 
@@ -260,16 +270,12 @@ export default function SchoolsPage() {
                                     <th className="px-6 py-4">UDISE Code</th>
                                     <th className="px-6 py-4">District</th>
                                     <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Application</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {schools.map(school => (
-                                    <tr
-                                        key={school.school_id}
-                                        className="hover:bg-slate-50/60 transition-colors"
-                                    >
+                                    <tr key={school.school_id} className="hover:bg-slate-50/60 transition-colors">
                                         {/* School name */}
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
@@ -306,17 +312,6 @@ export default function SchoolsPage() {
                                             </span>
                                         </td>
 
-                                        {/* Application status */}
-                                        <td className="px-6 py-4">
-                                            {school.application_status ? (
-                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${appStatusColors[school.application_status] ?? "bg-slate-100 text-slate-500"}`}>
-                                                    {school.application_status}
-                                                </span>
-                                            ) : (
-                                                <span className="text-xs text-slate-300">—</span>
-                                            )}
-                                        </td>
-
                                         {/* Actions */}
                                         <td className="px-6 py-4">
                                             <div className="flex items-center justify-end gap-1.5">
@@ -329,11 +324,22 @@ export default function SchoolsPage() {
                                                     <Eye className="w-4 h-4" />
                                                 </button>
 
-                                                {/* Verify */}
+                                                {/* Verify Profile - Only enabled when status is "Pending" */}
                                                 <button
                                                     onClick={() => setVerificationSchool(school)}
-                                                    title="Verify Application"
-                                                    className="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors border border-transparent hover:border-emerald-100"
+                                                    disabled={school.status !== "Pending"}
+                                                    title={
+                                                        school.status === "Active"
+                                                            ? "Already Verified"
+                                                            : school.status === "Blocked"
+                                                            ? "Profile Rejected"
+                                                            : "Verify Profile"
+                                                    }
+                                                    className={`p-2 rounded-lg transition-colors border ${
+                                                        school.status === "Pending"
+                                                            ? "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 border-transparent hover:border-emerald-100"
+                                                            : "text-slate-300 cursor-not-allowed opacity-60 border-slate-100"
+                                                    }`}
                                                 >
                                                     <CheckCircle className="w-4 h-4" />
                                                 </button>
@@ -372,7 +378,7 @@ export default function SchoolsPage() {
                         </table>
                     </div>
 
-                    {/* ── Pagination ── */}
+                    {/* Pagination */}
                     <div className="px-6 py-4 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between gap-4">
                         <p className="text-xs text-slate-500 font-medium">
                             Showing{" "}
@@ -390,7 +396,6 @@ export default function SchoolsPage() {
                                 <ChevronLeft className="w-4 h-4" />
                             </button>
 
-                            {/* Page numbers */}
                             {(() => {
                                 const pages: number[] = [];
                                 const start = Math.max(1, page - 2);
@@ -422,7 +427,7 @@ export default function SchoolsPage() {
                     </div>
                 </div>
             ) : (
-                /* ── Empty state ── */
+                /* Empty state */
                 <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-24 text-center">
                     <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
                         <School className="w-10 h-10 text-slate-300" />
@@ -433,9 +438,9 @@ export default function SchoolsPage() {
                             ? `No schools matching "${searchTerm}".`
                             : "No schools match your current filters."}
                     </p>
-                    {(searchTerm || selectedStatus) && (
+                    {(searchTerm || selectedDistrict || selectedStatus) && (
                         <button
-                            onClick={() => { setSearchTerm(""); setSelectedStatus(""); setPage(1); }}
+                            onClick={() => { setSearchTerm(""); setSelectedDistrict(""); setSelectedStatus(""); setPage(1); }}
                             className="mt-8 bg-slate-900 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors"
                         >
                             Clear Filters
@@ -444,7 +449,7 @@ export default function SchoolsPage() {
                 </div>
             )}
 
-            {/* ── Modals ── */}
+            {/* Modals */}
             {selectedSchool && (
                 <ProfileBookletModal
                     isOpen={!!selectedSchool}

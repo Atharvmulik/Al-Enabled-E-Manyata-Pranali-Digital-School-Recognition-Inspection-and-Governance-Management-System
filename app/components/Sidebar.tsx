@@ -93,11 +93,7 @@ export default function Sidebar() {
                                     >
                                         <Icon size={18} />
                                         {item.label}
-                                        {item.label === "Notifications" && (
-                                            <span className="ml-auto bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                                                3
-                                            </span>
-                                        )}
+                                        {item.label === "Notifications"}
                                     </Link>
                                 </li>
                             );

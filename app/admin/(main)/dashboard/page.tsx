@@ -181,31 +181,7 @@ export default function DashboardPage() {
                         <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
                     </button>
 
-                    {/* Export report (UI only) */}
-                    <button
-                        onClick={() => {
-                            setExportStatus("generating");
-                            setTimeout(() => {
-                                setExportStatus("success");
-                                setTimeout(() => setExportStatus("idle"), 3000);
-                            }, 2000);
-                        }}
-                        disabled={exportStatus !== "idle"}
-                        className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
-                    >
-                        {exportStatus === "generating" ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : exportStatus === "success" ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        ) : (
-                            <FileText className="w-4 h-4" />
-                        )}
-                        {exportStatus === "generating"
-                            ? "Generating..."
-                            : exportStatus === "success"
-                                ? "Report Exported!"
-                                : "Export Report"}
-                    </button>
+                    
 
                     <Link href="/admin/inspections">
                         <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-500/20">

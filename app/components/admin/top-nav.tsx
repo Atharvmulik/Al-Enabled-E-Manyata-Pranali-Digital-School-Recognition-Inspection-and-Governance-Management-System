@@ -26,16 +26,7 @@ export function TopNav() {
                     </p>
                 </div>
 
-                <div className="max-w-md w-full ml-8 hidden md:block">
-                    <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Search School / UDISE Code..."
-                            className="w-full bg-slate-50 border border-slate-200 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                        />
-                    </div>
-                </div>
+                
             </div>
 
             <div className="flex items-center gap-4">

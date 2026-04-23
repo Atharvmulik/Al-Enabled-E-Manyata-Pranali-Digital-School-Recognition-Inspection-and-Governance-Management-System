@@ -13,33 +13,33 @@ import { API_BASE_URL } from "@/lib/api";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ProfileBookletModalProps {
-    isOpen:     boolean;
-    onClose:    () => void;
+    isOpen: boolean;
+    onClose: () => void;
     schoolName: string;
-    udiseCode:  string;
-    schoolId:   string;
-    mode?:      "view" | "verify";
+    udiseCode: string;
+    schoolId: string;
+    mode?: "view" | "verify";
 }
 
 type NavSection = {
-    id:    string;
+    id: string;
     label: string;
-    icon:  React.ElementType;
+    icon: React.ElementType;
 };
 
 // ─── Nav config ───────────────────────────────────────────────────────────────
 
 const NAV_SECTIONS: NavSection[] = [
-    { id: "basic_details",        label: "Basic Details",         icon: Building2      },
-    { id: "receipts_expenditure", label: "Receipts & Expenditure",icon: FileText       },
-    { id: "legal_details",        label: "Legal Details",         icon: ClipboardList  },
-    { id: "location",             label: "Location",              icon: MapPin         },
-    { id: "infrastructure",       label: "Infrastructure",        icon: Wrench         },
-    { id: "staff",                label: "Staff",                 icon: Users          },
-    { id: "safety",               label: "Safety",                icon: Shield         },
-    { id: "student_capacity",     label: "Student Capacity",      icon: GraduationCap  },
-    { id: "vocational_education", label: "Vocational Education",  icon: FlaskConical   },
-    { id: "transport",            label: "Transportation",        icon: Bus            },
+    { id: "basic_details", label: "Basic Details", icon: Building2 },
+    { id: "receipts_expenditure", label: "Receipts & Expenditure", icon: FileText },
+    { id: "legal_details", label: "Legal Details", icon: ClipboardList },
+    { id: "location", label: "Location", icon: MapPin },
+    { id: "infrastructure", label: "Infrastructure", icon: Wrench },
+    { id: "staff", label: "Staff", icon: Users },
+    { id: "safety", label: "Safety", icon: Shield },
+    { id: "student_capacity", label: "Student Capacity", icon: GraduationCap },
+    { id: "vocational_education", label: "Vocational Education", icon: FlaskConical },
+    { id: "transport", label: "Transportation", icon: Bus },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -61,12 +61,12 @@ const yesNo = (v: any) => {
 
 const Badge = ({ text, color = "blue" }: { text: string; color?: string }) => {
     const colors: Record<string, string> = {
-        blue:   "bg-blue-50 text-blue-700 border-blue-100",
-        green:  "bg-emerald-50 text-emerald-700 border-emerald-100",
-        amber:  "bg-amber-50 text-amber-700 border-amber-100",
-        red:    "bg-rose-50 text-rose-700 border-rose-100",
+        blue: "bg-blue-50 text-blue-700 border-blue-100",
+        green: "bg-emerald-50 text-emerald-700 border-emerald-100",
+        amber: "bg-amber-50 text-amber-700 border-amber-100",
+        red: "bg-rose-50 text-rose-700 border-rose-100",
         purple: "bg-purple-50 text-purple-700 border-purple-100",
-        slate:  "bg-slate-100 text-slate-600 border-slate-200",
+        slate: "bg-slate-100 text-slate-600 border-slate-200",
     };
     return (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${colors[color] ?? colors.blue}`}>
@@ -109,30 +109,30 @@ function BasicDetailsSection({ data }: { data: any }) {
         <div className="space-y-6">
             <SectionTitle title="School Identity" />
             <InfoGrid rows={[
-                ["School Name",       val(bd.school_name)],
-                ["UDISE Number",      val(bd.udise_number)],
-                ["Establishment Year",val(bd.est_year)],
+                ["School Name", val(bd.school_name)],
+                ["UDISE Number", val(bd.udise_number)],
+                ["Establishment Year", val(bd.est_year)],
                 ["Board Affiliation", val(bd.board_affiliation)],
-                ["School Type",       val(bd.school_type)],
-                ["School Category",   val(bd.school_category)],
-                ["Classification",    val(bd.classification)],
-                ["Application Type",  val(bd.application_type)],
-                ["Lowest Class",      val(bd.lowest_class)],
-                ["Highest Class",     val(bd.highest_class)],
-                ["Location Type",     val(bd.location_type)],
-                ["Is PM-SHRI",        yesNo(bd.is_pm_shri)],
+                ["School Type", val(bd.school_type)],
+                ["School Category", val(bd.school_category)],
+                ["Classification", val(bd.classification)],
+                ["Application Type", val(bd.application_type)],
+                ["Lowest Class", val(bd.lowest_class)],
+                ["Highest Class", val(bd.highest_class)],
+                ["Location Type", val(bd.location_type)],
+                ["Is PM-SHRI", yesNo(bd.is_pm_shri)],
             ]} />
 
             <SectionTitle title="Management" />
             <InfoGrid rows={[
-                ["Management Group",  val(bd.management_group)],
-                ["Management Code",   val(bd.management_code)],
-                ["Sub-Management",    val(bd.sub_management)],
-                ["Is Minority",       yesNo(bd.is_minority)],
-                ["Minority Community",val(bd.minority_community)],
-                ["Is Residential",    yesNo(bd.is_residential)],
-                ["Residential Type",  val(bd.residential_type)],
-                ["Is Shift School",   yesNo(bd.is_shift)],
+                ["Management Group", val(bd.management_group)],
+                ["Management Code", val(bd.management_code)],
+                ["Sub-Management", val(bd.sub_management)],
+                ["Is Minority", yesNo(bd.is_minority)],
+                ["Minority Community", val(bd.minority_community)],
+                ["Is Residential", yesNo(bd.is_residential)],
+                ["Residential Type", val(bd.residential_type)],
+                ["Is Shift School", yesNo(bd.is_shift)],
             ]} />
 
             <SectionTitle title="Contact Details" />
@@ -161,18 +161,18 @@ function BasicDetailsSection({ data }: { data: any }) {
 
             <SectionTitle title="Academic Details" />
             <InfoGrid rows={[
-                ["Curriculum (Primary)",       val(bd.curriculum_primary)],
+                ["Curriculum (Primary)", val(bd.curriculum_primary)],
                 ["Curriculum (Upper Primary)", val(bd.curriculum_upper_primary)],
-                ["Is RTE School",              yesNo(bd.is_rte)],
-                ["Is Vocational",              yesNo(bd.is_vocational)],
-                ["Is Pre-Vocational",          yesNo(bd.is_pre_vocational)],
-                ["Instructional Days",         val(bd.instructional_days)],
-                ["Is CCE",                     yesNo(bd.is_cce)],
-                ["Mother Tongue Medium",       yesNo(bd.is_mother_tongue)],
-                ["Has SMC",                    yesNo(bd.has_smc)],
-                ["Has PTA",                    yesNo(bd.has_pta)],
-                ["PTA Meetings",               val(bd.pta_meetings)],
-                ["Has PFMS",                   yesNo(bd.has_pfms)],
+                ["Is RTE School", yesNo(bd.is_rte)],
+                ["Is Vocational", yesNo(bd.is_vocational)],
+                ["Is Pre-Vocational", yesNo(bd.is_pre_vocational)],
+                ["Instructional Days", val(bd.instructional_days)],
+                ["Is CCE", yesNo(bd.is_cce)],
+                ["Mother Tongue Medium", yesNo(bd.is_mother_tongue)],
+                ["Has SMC", yesNo(bd.has_smc)],
+                ["Has PTA", yesNo(bd.has_pta)],
+                ["PTA Meetings", val(bd.pta_meetings)],
+                ["Has PFMS", yesNo(bd.has_pfms)],
             ]} />
 
             {Array.isArray(data.anganwadi_rows) && data.anganwadi_rows.length > 0 && (
@@ -219,9 +219,9 @@ function ReceiptsSection({ data }: { data: any }) {
             <SectionTitle title="Annual Expenditure" />
             <InfoGrid rows={[
                 ["Maintenance / Housekeeping", val(re.exp_maintenance)],
-                ["Teachers",                   val(re.exp_teachers)],
-                ["Construction Works",         val(re.exp_construction)],
-                ["Others",                     val(re.exp_others)],
+                ["Teachers", val(re.exp_teachers)],
+                ["Construction Works", val(re.exp_construction)],
+                ["Others", val(re.exp_others)],
             ]} />
 
             {grants.length > 0 && (
@@ -291,11 +291,11 @@ function LegalDetailsSection({ data }: { data: any }) {
             <SectionTitle title="Legal & Recognition" />
             <InfoGrid rows={[
                 ["Recognition Number", val(ld.recognition_number)],
-                ["Recognition Date",   val(ld.recognition_date)],
+                ["Recognition Date", val(ld.recognition_date)],
                 ["Affiliation Number", val(ld.affiliation_number)],
-                ["Funding Source",     val(ld.funding_source)],
+                ["Funding Source", val(ld.funding_source)],
                 ["Sanction Order No.", val(ld.sanction_order_number)],
-                ["Is Vocational",      yesNo(ld.is_vocational)],
+                ["Is Vocational", yesNo(ld.is_vocational)],
             ]} />
 
             {vocRows.length > 0 && (
@@ -337,18 +337,18 @@ function LocationSection({ data }: { data: any }) {
         <div className="space-y-6">
             <SectionTitle title="Address & Jurisdiction" />
             <InfoGrid rows={[
-                ["Full Address",             val(loc.address)],
-                ["District",                val(loc.district)],
-                ["Taluka",                  val(loc.taluka)],
-                ["Pin Code",                val(loc.pin_code)],
-                ["Revenue Block",           val(loc.revenue_block)],
-                ["Village Name",            val(loc.village_name)],
-                ["Gram Panchayat",          val(loc.gram_panchayat)],
-                ["Urban Local Body",        val(loc.urban_local_body)],
-                ["Ward Name",               val(loc.ward_name)],
-                ["CRC Name",                val(loc.crc_name)],
-                ["Assembly Constituency",   val(loc.assembly_constituency)],
-                ["Parliamentary Const.",    val(loc.parliamentary_constituency)],
+                ["Full Address", val(loc.address)],
+                ["District", val(loc.district)],
+                ["Taluka", val(loc.taluka)],
+                ["Pin Code", val(loc.pin_code)],
+                ["Revenue Block", val(loc.revenue_block)],
+                ["Village Name", val(loc.village_name)],
+                ["Gram Panchayat", val(loc.gram_panchayat)],
+                ["Urban Local Body", val(loc.urban_local_body)],
+                ["Ward Name", val(loc.ward_name)],
+                ["CRC Name", val(loc.crc_name)],
+                ["Assembly Constituency", val(loc.assembly_constituency)],
+                ["Parliamentary Const.", val(loc.parliamentary_constituency)],
             ]} />
         </div>
     );
@@ -362,58 +362,58 @@ function InfrastructureSection({ data }: { data: any }) {
         <div className="space-y-6">
             <SectionTitle title="Building" />
             <InfoGrid rows={[
-                ["Building Status",         val(inf.building_status)],
-                ["Boundary Wall",           val(inf.boundary_wall)],
-                ["Active Building Blocks",  val(inf.active_building_blocks)],
-                ["Pucca Blocks",            val(inf.building_pucca)],
-                ["Kuchcha Blocks",          val(inf.building_kuchcha)],
-                ["Dilapidated Blocks",      val(inf.building_dilapidated)],
-                ["Under Construction",      val(inf.building_under_construction)],
-                ["Has Electricity",         yesNo(inf.has_electricity)],
-                ["Has Solar Panel",         yesNo(inf.has_solar_panel)],
+                ["Building Status", val(inf.building_status)],
+                ["Boundary Wall", val(inf.boundary_wall)],
+                ["Active Building Blocks", val(inf.active_building_blocks)],
+                ["Pucca Blocks", val(inf.building_pucca)],
+                ["Kuchcha Blocks", val(inf.building_kuchcha)],
+                ["Dilapidated Blocks", val(inf.building_dilapidated)],
+                ["Under Construction", val(inf.building_under_construction)],
+                ["Has Electricity", yesNo(inf.has_electricity)],
+                ["Has Solar Panel", yesNo(inf.has_solar_panel)],
             ]} />
 
             <SectionTitle title="Classrooms" />
             <InfoGrid rows={[
-                ["Pre-Primary Classrooms",    val(inf.classrooms_pre_primary)],
-                ["Primary Classrooms",        val(inf.classrooms_primary)],
-                ["Upper Primary Classrooms",  val(inf.classrooms_upper_primary)],
-                ["Secondary Classrooms",      val(inf.classrooms_secondary)],
-                ["Higher Secondary Rooms",    val(inf.classrooms_higher_secondary)],
+                ["Pre-Primary Classrooms", val(inf.classrooms_pre_primary)],
+                ["Primary Classrooms", val(inf.classrooms_primary)],
+                ["Upper Primary Classrooms", val(inf.classrooms_upper_primary)],
+                ["Secondary Classrooms", val(inf.classrooms_secondary)],
+                ["Higher Secondary Rooms", val(inf.classrooms_higher_secondary)],
                 ["Total Instructional Rooms", val(inf.total_instructional_rooms)],
-                ["Not In Use",                val(inf.classrooms_not_in_use)],
-                ["Dilapidated",               val(inf.classrooms_dilapidated)],
+                ["Not In Use", val(inf.classrooms_not_in_use)],
+                ["Dilapidated", val(inf.classrooms_dilapidated)],
             ]} />
 
             <SectionTitle title="Facilities" />
             <InfoGrid rows={[
-                ["Has Library",             yesNo(inf.has_library)],
-                ["Library Books",           val(inf.library_books)],
-                ["Has Playground",          yesNo(inf.has_playground)],
-                ["Playground Area",         val(inf.playground_area)],
-                ["Has Ramp (CWSN)",         yesNo(inf.has_ramp)],
-                ["Has Hand Rails",          yesNo(inf.has_hand_rails)],
-                ["Has ICT Lab",             yesNo(inf.has_ict_lab)],
-                ["ICT Labs Count",          val(inf.ict_labs_count)],
-                ["Has Internet",            yesNo(inf.has_internet)],
-                ["Internet Type",           val(inf.internet_type)],
-                ["Has Principal Room",      yesNo(inf.has_principal_room)],
-                ["Has Staffroom",           yesNo(inf.has_staffroom)],
-                ["Has Girls Common Room",   yesNo(inf.has_girls_common_room)],
-                ["Has Kitchen Garden",      yesNo(inf.has_kitchen_garden)],
-                ["Has First Aid",           yesNo(inf.has_first_aid)],
-                ["Has Water Purifier",      yesNo(inf.has_water_purifier)],
+                ["Has Library", yesNo(inf.has_library)],
+                ["Library Books", val(inf.library_books)],
+                ["Has Playground", yesNo(inf.has_playground)],
+                ["Playground Area", val(inf.playground_area)],
+                ["Has Ramp (CWSN)", yesNo(inf.has_ramp)],
+                ["Has Hand Rails", yesNo(inf.has_hand_rails)],
+                ["Has ICT Lab", yesNo(inf.has_ict_lab)],
+                ["ICT Labs Count", val(inf.ict_labs_count)],
+                ["Has Internet", yesNo(inf.has_internet)],
+                ["Internet Type", val(inf.internet_type)],
+                ["Has Principal Room", yesNo(inf.has_principal_room)],
+                ["Has Staffroom", yesNo(inf.has_staffroom)],
+                ["Has Girls Common Room", yesNo(inf.has_girls_common_room)],
+                ["Has Kitchen Garden", yesNo(inf.has_kitchen_garden)],
+                ["Has First Aid", yesNo(inf.has_first_aid)],
+                ["Has Water Purifier", yesNo(inf.has_water_purifier)],
             ]} />
 
             <SectionTitle title="Toilets" />
             <InfoGrid rows={[
-                ["Boys Toilets (Total)",    val(inf.toilet_boys_total)],
-                ["Boys Toilets (Func.)",    val(inf.toilet_boys_func)],
-                ["Girls Toilets (Total)",   val(inf.toilet_girls_total)],
-                ["Girls Toilets (Func.)",   val(inf.toilet_girls_func)],
-                ["CWSN Boys Toilets",       val(inf.cwsn_boys_total)],
-                ["CWSN Girls Toilets",      val(inf.cwsn_girls_total)],
-                ["Has Incinerator",         yesNo(inf.has_incinerator)],
+                ["Boys Toilets (Total)", val(inf.toilet_boys_total)],
+                ["Boys Toilets (Func.)", val(inf.toilet_boys_func)],
+                ["Girls Toilets (Total)", val(inf.toilet_girls_total)],
+                ["Girls Toilets (Func.)", val(inf.toilet_girls_func)],
+                ["CWSN Boys Toilets", val(inf.cwsn_boys_total)],
+                ["CWSN Girls Toilets", val(inf.cwsn_girls_total)],
+                ["Has Incinerator", yesNo(inf.has_incinerator)],
                 ["Has Pad Vending Machine", yesNo(inf.has_pad_vending_machine)],
             ]} />
 
@@ -460,10 +460,10 @@ function StaffSection({ data }: { data: any }) {
             <SectionTitle title="Staff Summary" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                    { label: "Regular Teaching",  count: summary.count_regular },
-                    { label: "Non-Regular",        count: summary.count_non_regular },
-                    { label: "Non-Teaching",       count: summary.count_non_teaching },
-                    { label: "Vocational",         count: summary.count_vocational },
+                    { label: "Regular Teaching", count: summary.count_regular },
+                    { label: "Non-Regular", count: summary.count_non_regular },
+                    { label: "Non-Teaching", count: summary.count_non_teaching },
+                    { label: "Vocational", count: summary.count_vocational },
                 ].map((s, i) => (
                     <div key={i} className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
                         <p className="text-2xl font-black text-slate-800">{val(s.count)}</p>
@@ -550,14 +550,14 @@ function SafetySection({ data }: { data: any }) {
             <SectionTitle title="Safety Compliance" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
-                    ["Disaster Management Plan",  s.has_disaster_plan],
-                    ["Structural Safety Audit",   s.has_structural_audit],
-                    ["CCTV Cameras",              s.has_cctv],
-                    ["Fire Extinguishers",        s.has_fire_extinguishers],
-                    ["Nodal Safety Teacher",      s.has_nodal_teacher],
-                    ["Safety Training",           s.has_safety_training],
-                    ["Safety Display Board",      s.has_safety_display_board],
-                    ["First Level Counselor",     s.has_first_level_counselor],
+                    ["Disaster Management Plan", s.has_disaster_plan],
+                    ["Structural Safety Audit", s.has_structural_audit],
+                    ["CCTV Cameras", s.has_cctv],
+                    ["Fire Extinguishers", s.has_fire_extinguishers],
+                    ["Nodal Safety Teacher", s.has_nodal_teacher],
+                    ["Safety Training", s.has_safety_training],
+                    ["Safety Display Board", s.has_safety_display_board],
+                    ["First Level Counselor", s.has_first_level_counselor],
                     ["Disaster Mgmt in Curriculum", s.disaster_management_taught],
                     ["Self Defence Grant (Girls)", s.has_self_defence_grant],
                 ].map(([label, value], i) => (
@@ -570,11 +570,11 @@ function SafetySection({ data }: { data: any }) {
 
             <SectionTitle title="Safety Audit Details" />
             <InfoGrid rows={[
-                ["Safety Training Date",   val(s.safety_training_date)],
-                ["Audit Frequency",        val(s.safety_audit_frequency)],
+                ["Safety Training Date", val(s.safety_training_date)],
+                ["Audit Frequency", val(s.safety_audit_frequency)],
                 ["Self Defence – Upper Primary", val(s.self_defence_upper_primary)],
-                ["Self Defence – Secondary",     val(s.self_defence_secondary)],
-                ["Self Defence – Higher Sec.",   val(s.self_defence_higher_secondary)],
+                ["Self Defence – Secondary", val(s.self_defence_secondary)],
+                ["Self Defence – Higher Sec.", val(s.self_defence_higher_secondary)],
             ]} />
         </div>
     );
@@ -663,24 +663,24 @@ function VocationalSection({ data }: { data: any }) {
         <div className="space-y-6">
             <SectionTitle title="Industry Engagement" />
             <InfoGrid rows={[
-                ["Guest Lecturers",      val(ve.vocational_guest_lecturers)],
-                ["Industry Visits",      val(ve.vocational_industry_visits)],
-                ["Industry Linkages",    val(ve.vocational_industry_linkages)],
+                ["Guest Lecturers", val(ve.vocational_guest_lecturers)],
+                ["Industry Visits", val(ve.vocational_industry_visits)],
+                ["Industry Linkages", val(ve.vocational_industry_linkages)],
             ]} />
 
             <SectionTitle title="Placements – Class 10" />
             <InfoGrid rows={[
-                ["Enrolled",            val(ve.plac_enrolled_10)],
-                ["Passed / Certified",  val(ve.plac_passed_10)],
-                ["Self-Employed",       val(ve.plac_self_emp_10)],
+                ["Enrolled", val(ve.plac_enrolled_10)],
+                ["Passed / Certified", val(ve.plac_passed_10)],
+                ["Self-Employed", val(ve.plac_self_emp_10)],
                 ["Placed / Apprentice", val(ve.plac_placed_10)],
             ]} />
 
             <SectionTitle title="Placements – Class 12" />
             <InfoGrid rows={[
-                ["Enrolled",            val(ve.plac_enrolled_12)],
-                ["Passed / Certified",  val(ve.plac_passed_12)],
-                ["Self-Employed",       val(ve.plac_self_emp_12)],
+                ["Enrolled", val(ve.plac_enrolled_12)],
+                ["Passed / Certified", val(ve.plac_passed_12)],
+                ["Self-Employed", val(ve.plac_self_emp_12)],
                 ["Placed / Apprentice", val(ve.plac_placed_12)],
             ]} />
 
@@ -721,12 +721,12 @@ function TransportSection({ data }: { data: any }) {
         <div className="space-y-6">
             <SectionTitle title="Vehicle & Driver Details" />
             <InfoGrid rows={[
-                ["Vehicle Age (years)",      val(t.trans_vehicle_age)],
-                ["Speed Governor",           yesNo(t.trans_speed_governor)],
-                ["School Name on Bus",       yesNo(t.trans_school_name_written)],
-                ["Driver Experience",        val(t.trans_driver_experience)],
-                ["No Traffic Offences",      yesNo(t.trans_driver_no_traffic_offences)],
-                ["Auto Safety Measures",     yesNo(t.trans_auto_safety)],
+                ["Vehicle Age (years)", val(t.trans_vehicle_age)],
+                ["Speed Governor", yesNo(t.trans_speed_governor)],
+                ["School Name on Bus", yesNo(t.trans_school_name_written)],
+                ["Driver Experience", val(t.trans_driver_experience)],
+                ["No Traffic Offences", yesNo(t.trans_driver_no_traffic_offences)],
+                ["Auto Safety Measures", yesNo(t.trans_auto_safety)],
             ]} />
 
             <SectionTitle title="Documents" />
@@ -769,6 +769,7 @@ function TransportSection({ data }: { data: any }) {
 }
 
 // ─── Main Modal ───────────────────────────────────────────────────────────────
+// ─── Main Modal ───────────────────────────────────────────────────────────────
 
 export default function ProfileBookletModal({
     isOpen,
@@ -779,10 +780,12 @@ export default function ProfileBookletModal({
     mode = "view",
 }: ProfileBookletModalProps) {
     const [activeSection, setActiveSection] = useState("basic_details");
-    const [profile, setProfile]             = useState<any>(null);
-    const [loading, setLoading]             = useState(false);
-    const [error, setError]                 = useState<string | null>(null);
-    const [expanded, setExpanded]           = useState(false);
+    const [profile, setProfile] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [expanded, setExpanded] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     // ── Fetch full profile ──────────────────────────────────────────────────
     const fetchProfile = useCallback(async () => {
@@ -806,6 +809,50 @@ export default function ProfileBookletModal({
             setLoading(false);
         }
     }, [schoolId]);
+
+    const handleVerification = async (action: "approve" | "reject") => {
+        try {
+            setSubmitting(true);
+            setSubmitError(null);
+
+            const raw = localStorage.getItem("user");
+            if (!raw) throw new Error("Not authenticated");
+
+            const { access_token } = JSON.parse(raw);
+
+            const res = await fetch(
+                `${API_BASE_URL}/admin/schools/${schoolId}/verify`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${access_token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        action,
+                        remarks:
+                            action === "approve"
+                                ? "Application approved by admin"
+                                : "Application rejected by admin",
+                    }),
+                }
+            );
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.detail || "Failed to verify application");
+            }
+
+            alert(data.message);
+            onClose();
+            window.location.reload();
+        } catch (err: any) {
+            setSubmitError(err.message || "Verification failed");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     useEffect(() => {
         if (isOpen && schoolId) {
@@ -843,21 +890,27 @@ export default function ProfileBookletModal({
         if (!profile) return <EmptyState message="No profile data loaded." />;
 
         switch (activeSection) {
-            case "basic_details":        return <BasicDetailsSection   data={profile} />;
-            case "receipts_expenditure": return <ReceiptsSection       data={profile} />;
-            case "legal_details":        return <LegalDetailsSection   data={profile} />;
-            case "location":             return <LocationSection        data={profile} />;
-            case "infrastructure":       return <InfrastructureSection data={profile} />;
-            case "staff":                return <StaffSection           data={profile} />;
-            case "safety":               return <SafetySection          data={profile} />;
-            case "student_capacity":     return <StudentCapacitySection data={profile} />;
-            case "vocational_education": return <VocationalSection      data={profile} />;
-            case "transport":            return <TransportSection       data={profile} />;
-            default:                     return <EmptyState />;
+            case "basic_details": return <BasicDetailsSection data={profile} />;
+            case "receipts_expenditure": return <ReceiptsSection data={profile} />;
+            case "legal_details": return <LegalDetailsSection data={profile} />;
+            case "location": return <LocationSection data={profile} />;
+            case "infrastructure": return <InfrastructureSection data={profile} />;
+            case "staff": return <StaffSection data={profile} />;
+            case "safety": return <SafetySection data={profile} />;
+            case "student_capacity": return <StudentCapacitySection data={profile} />;
+            case "vocational_education": return <VocationalSection data={profile} />;
+            case "transport": return <TransportSection data={profile} />;
+            default: return <EmptyState />;
         }
     };
 
     const activeNavItem = NAV_SECTIONS.find(n => n.id === activeSection);
+
+    // Determine if verification buttons should be shown
+    const profileStatus = profile?.status;
+    const showVerificationButtons = mode === "verify" && !loading && profile && profileStatus === "Pending";
+    const isAlreadyActive = mode === "verify" && !loading && profile && profileStatus === "Active";
+    const isAlreadyBlocked = mode === "verify" && !loading && profile && profileStatus === "Blocked";
 
     return (
         <>
@@ -869,11 +922,10 @@ export default function ProfileBookletModal({
 
             {/* Modal */}
             <div
-                className={`fixed z-50 bg-white shadow-2xl flex flex-col transition-all duration-300 ${
-                    expanded
-                        ? "inset-4 rounded-2xl"
-                        : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-5xl h-[90vh] rounded-2xl"
-                }`}
+                className={`fixed z-50 bg-white shadow-2xl flex flex-col transition-all duration-300 ${expanded
+                    ? "inset-4 rounded-2xl"
+                    : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-5xl h-[90vh] rounded-2xl"
+                    }`}
             >
                 {/* ── Header ── */}
                 <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-100 shrink-0">
@@ -917,11 +969,10 @@ export default function ProfileBookletModal({
                                 <button
                                     key={section.id}
                                     onClick={() => setActiveSection(section.id)}
-                                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-all text-left ${
-                                        active
-                                            ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
-                                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                                    }`}
+                                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-all text-left ${active
+                                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
+                                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                                        }`}
                                 >
                                     <Icon className="w-4 h-4 shrink-0" />
                                     <span className="truncate">{section.label}</span>
@@ -952,17 +1003,52 @@ export default function ProfileBookletModal({
                 {/* ── Footer (verify mode) ── */}
                 {mode === "verify" && !loading && profile && (
                     <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-between gap-4 shrink-0 bg-slate-50/50">
-                        <p className="text-xs text-slate-500">
-                            Use the buttons to approve or reject this school's application.
-                        </p>
-                        <div className="flex gap-3">
-                            <button className="px-5 py-2.5 rounded-xl text-sm font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors">
-                                Reject Application
-                            </button>
-                            <button className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-colors">
-                                Approve Application
-                            </button>
+                        <div className="flex-1">
+                            {isAlreadyActive && (
+                                <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                                    <span className="text-sm font-medium">This school profile has already been approved.</span>
+                                </div>
+                            )}
+                            {isAlreadyBlocked && (
+                                <div className="flex items-center gap-2 text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200">
+                                    <XCircle className="w-5 h-5 shrink-0" />
+                                    <span className="text-sm font-medium">This school profile has been rejected.</span>
+                                </div>
+                            )}
+                            {showVerificationButtons && (
+                                <>
+                                    <p className="text-xs text-slate-500">
+                                        Use the buttons to approve or reject this school's application.
+                                    </p>
+                                    {submitError && (
+                                        <p className="text-xs text-rose-500 mt-1 font-medium">
+                                            {submitError}
+                                        </p>
+                                    )}
+                                </>
+                            )}
                         </div>
+
+                        {showVerificationButtons && (
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => handleVerification("reject")}
+                                    disabled={submitting}
+                                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                                >
+                                    {submitting ? "Processing..." : "Reject Application"}
+                                </button>
+
+                                <button
+                                    onClick={() => handleVerification("approve")}
+                                    disabled={submitting}
+                                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                                >
+                                    {submitting ? "Processing..." : "Approve Application"}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

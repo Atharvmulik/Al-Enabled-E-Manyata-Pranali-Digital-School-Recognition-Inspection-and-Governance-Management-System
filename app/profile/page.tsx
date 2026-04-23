@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "../components/DashboardLayout";
@@ -5728,107 +5728,8 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
-                        {/* 1.62 Total Expenditure */}
-                        <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm space-y-4">
-                            <h3 className="text-lg font-semibold text-neutral-800 pb-2 border-b border-neutral-100">
-                                1.62 Total annual expenditure of school on account of following (in Previous Academic year)
-                            </h3>
-
-                            {applicationType === "New Recognition" ? (
-                                <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200">
-                                    <p className="text-sm text-neutral-600 italic">Since a brand-new school has no "previous year" of operation, these fields are not applicable.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-5">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full border-collapse border border-neutral-200 text-sm">
-                                            <thead>
-                                                <tr className="bg-neutral-50 text-neutral-700">
-                                                    <th className="border border-neutral-200 p-3 text-center w-24">Sl. No.</th>
-                                                    <th className="border border-neutral-200 p-3 text-left">Details</th>
-                                                    <th className="border border-neutral-200 p-3 text-center w-56">Expenditure (In Rs.)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr className="bg-white hover:bg-neutral-50">
-                                                    <td className="border border-neutral-200 p-2 text-center text-neutral-500">1.62.1</td>
-                                                    <td className="border border-neutral-200 p-2 font-medium text-neutral-700">Maintenance/ Housekeeping</td>
-                                                    <td className="border border-neutral-200 p-1">
-                                                        <InputField
-                                                            name="expMaintenance"
-                                                            label="Maintenance Expenditure"
-                                                            value={expMaintenance}
-                                                            onChange={(e) => setExpMaintenance(e.target.value)}
-                                                            type="number"
-                                                            placeholder="Enter maintenance expenditure"
-                                                            error={stepErrors[1]?.expMaintenance}
-                                                        />
-                                                    </td>
-                                                </tr>
-                                                <tr className="bg-white hover:bg-neutral-50">
-                                                    <td className="border border-neutral-200 p-2 text-center text-neutral-500">1.62.2</td>
-                                                    <td className="border border-neutral-200 p-2 font-medium text-neutral-700">
-                                                        Teachers
-                                                        {applicationType === "Renewal" && (
-                                                            <span className="block text-[10px] text-blue-600 italic font-normal mt-0.5">Critical: Used to cross-verify with Staff module for salary compliance.</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="border border-neutral-200 p-1">
-                                                        <InputField
-                                                            name="expMaintenance"
-                                                            label="Maintenance Expenditure"
-                                                            value={expMaintenance}
-                                                            onChange={(e) => setExpMaintenance(e.target.value)}
-                                                            type="number"
-                                                            placeholder="Enter maintenance expenditure"
-                                                            error={stepErrors[1]?.expMaintenance}
-                                                        />
-                                                    </td>
-                                                </tr>
-                                                <tr className="bg-white hover:bg-neutral-50">
-                                                    <td className="border border-neutral-200 p-2 text-center text-neutral-500">1.62.3</td>
-                                                    <td className="border border-neutral-200 p-2 font-medium text-neutral-700">
-                                                        Construction Works
-                                                        {applicationType === "Upgradation" && (
-                                                            <span className="block text-[10px] text-blue-600 italic font-normal mt-0.5">High: Essential proof of investment for higher levels.</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="border border-neutral-200 p-1">
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-transparent p-1 focus:outline-none text-center"
-                                                            value={expConstruction}
-                                                            onChange={(e) => setExpConstruction(e.target.value)}
-                                                            placeholder="0"
-                                                        />
-                                                    </td>
-                                                </tr>
-                                                <tr className="bg-white hover:bg-neutral-50">
-                                                    <td className="border border-neutral-200 p-2 text-center text-neutral-500">1.62.4</td>
-                                                    <td className="border border-neutral-200 p-2 font-medium text-neutral-700">Others</td>
-                                                    <td className="border border-neutral-200 p-1">
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-transparent p-1 focus:outline-none text-center"
-                                                            value={expOthers}
-                                                            onChange={(e) => setExpOthers(e.target.value)}
-                                                            placeholder="0"
-                                                        />
-                                                    </td>
-                                                </tr>
-                                                <tr className="bg-neutral-100 font-bold">
-                                                    <td className="border border-neutral-200 p-2 text-center"></td>
-                                                    <td className="border border-neutral-200 p-2 text-right">Total Expenditure Incurred</td>
-                                                    <td className="border border-neutral-200 p-2 text-center text-primary-700">
-                                                        {((parseFloat(expMaintenance || "0") + parseFloat(expTeachers || "0") + parseFloat(expConstruction || "0") + parseFloat(expOthers || "0")) || 0).toLocaleString('en-IN')}
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        
+                                
                     </div>
                 )}
 

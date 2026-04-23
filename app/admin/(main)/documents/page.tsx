@@ -15,52 +15,57 @@ import { API_BASE_URL } from "@/lib/api";
 
 type StoredUser = { user_id: string; email: string; role: string; access_token: string };
 
-export type DocStatus      = "Pending" | "Approved" | "Rejected" | "Not Required";
+export type DocStatus = "Pending" | "Approved" | "Rejected" | "Not Required";
 export type DocRequirement = "Mandatory" | "Conditional" | "Optional";
 
 export interface DocumentItem {
-    doc_id:          string;
-    name:            string;
-    status:          DocStatus;
-    requirement:     DocRequirement;
-    file_name?:      string;
-    file_url?:       string;
-    content_type?:   string;
-    uploaded_at?:    string;
-    category:        string;
+    doc_id: string;
+    name: string;
+    status: DocStatus;
+    requirement: DocRequirement;
+    file_name?: string;
+    file_url?: string;
+    content_type?: string;
+    uploaded_at?: string;
+    category: string;
     rejected_reason?: string;
-    admin_remarks?:  string;
+    admin_remarks?: string;
+    preview_url?: string;
 }
 
 export interface DocumentCategory {
     category: string;
-    docs:     DocumentItem[];
+    docs: DocumentItem[];
 }
 
 interface SchoolDocSummary {
-    school_id:     string;
-    name:          string;
+    school_id: string;
+    name: string;
     pending_count: number;
-    priority:      "Urgent" | "Normal";
+    priority: "Urgent" | "Normal";
     review_status: "Pending" | "Reviewing" | "Rejected" | "Approved";
 }
 
 interface DocsPageData {
-    school_id:   string;
+    school_id: string;
     school_name: string;
-    stats:       { approved: number; pending: number; rejected: number };
-    categories:  DocumentCategory[];
+    stats: { approved: number; pending: number; rejected: number };
+    categories: DocumentCategory[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getHeaders = (token: string) => ({
-    Authorization:  `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
 });
 
+// Only include documents that have a file_url
 const flatDocs = (cats: DocumentCategory[]) =>
-    cats.flatMap(c => c.docs).filter(d => d.status !== "Not Required");
+    cats
+        .flatMap(c => c.docs)
+        .filter(d => d.status !== "Not Required")
+        .filter(d => !!d.file_url);
 
 const cn = (...classes: (string | boolean | undefined)[]) =>
     classes.filter(Boolean).join(" ");
@@ -118,38 +123,40 @@ function DocumentViewer({
     actionLoading,
     actionError,
 }: {
-    doc:          DocumentItem;
-    schoolName:   string;
-    onApprove:    (remarks?: string) => void;
-    onReject:     (reason: string) => void;
-    onReset:      () => void;
-    onNext:       () => void;
-    onPrevious:   () => void;
-    onBack:       () => void;
-    hasNext:      boolean;
-    hasPrevious:  boolean;
+    doc: DocumentItem;
+    schoolName: string;
+    onApprove: (remarks?: string) => void;
+    onReject: (reason: string) => void;
+    onReset: () => void;
+    onNext: () => void;
+    onPrevious: () => void;
+    onBack: () => void;
+    hasNext: boolean;
+    hasPrevious: boolean;
     actionLoading: boolean;
-    actionError:  string | null;
+    actionError: string | null;
 }) {
     const [rejectionReason, setRejectionReason] = React.useState(doc.rejected_reason || "");
-    const [approveRemarks,  setApproveRemarks]  = React.useState(doc.admin_remarks || "");
-    const [fullScreen,      setFullScreen]      = React.useState(false);
-    const [showApproveBox,  setShowApproveBox]  = React.useState(false);
+    const [approveRemarks, setApproveRemarks] = React.useState(doc.admin_remarks || "");
+    const [fullScreen, setFullScreen] = React.useState(false);
+    const [showApproveBox, setShowApproveBox] = React.useState(false);
 
-    // Reset form state when doc changes
     React.useEffect(() => {
         setRejectionReason(doc.rejected_reason || "");
         setApproveRemarks(doc.admin_remarks || "");
         setShowApproveBox(false);
     }, [doc.doc_id]);
 
-    const isPDF   = doc.content_type?.includes("pdf") || doc.file_url?.endsWith(".pdf");
-    const isImage = doc.content_type?.includes("image") ||
-                    /\.(jpg|jpeg|png|webp)$/i.test(doc.file_url || "");
+    const isPDF =
+        doc.content_type?.toLowerCase().includes("pdf") ||
+        doc.file_url?.toLowerCase().includes(".pdf");
+    const isImage =
+        doc.content_type?.toLowerCase().includes("image") ||
+        /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.file_url || "");
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-            {/* ── Viewer Header ── */}
+            {/* Viewer Header */}
             <div className="px-5 py-3.5 bg-white border-b border-slate-100 flex items-center justify-between gap-4 shrink-0 shadow-sm">
                 <div className="flex items-center gap-3 min-w-0">
                     <button
@@ -161,7 +168,7 @@ function DocumentViewer({
                     <div className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md shrink-0",
                         doc.status === "Approved" ? "bg-emerald-500" :
-                        doc.status === "Rejected" ? "bg-rose-500" : "bg-blue-600"
+                            doc.status === "Rejected" ? "bg-rose-500" : "bg-blue-600"
                     )}>
                         <FileIcon contentType={doc.content_type} />
                     </div>
@@ -176,7 +183,6 @@ function DocumentViewer({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                    {/* Prev / Next */}
                     <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-0.5">
                         <button
                             onClick={onPrevious}
@@ -195,7 +201,6 @@ function DocumentViewer({
                         </button>
                     </div>
 
-                    {/* Fullscreen */}
                     <button
                         onClick={() => setFullScreen(true)}
                         className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 rounded-xl transition-colors border border-slate-200"
@@ -203,7 +208,6 @@ function DocumentViewer({
                         <Maximize2 className="w-4 h-4" />
                     </button>
 
-                    {/* Reset */}
                     {doc.status !== "Pending" && (
                         <button
                             onClick={onReset}
@@ -215,7 +219,6 @@ function DocumentViewer({
                         </button>
                     )}
 
-                    {/* Approve button */}
                     <button
                         onClick={() => setShowApproveBox(v => !v)}
                         disabled={actionLoading || doc.status === "Approved"}
@@ -232,7 +235,6 @@ function DocumentViewer({
                 </div>
             </div>
 
-            {/* Error banner */}
             {actionError && (
                 <div className="bg-rose-50 border-b border-rose-100 text-rose-600 text-xs font-semibold px-5 py-2 flex items-center gap-2">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -240,14 +242,10 @@ function DocumentViewer({
                 </div>
             )}
 
-            {/* ── Body ── */}
             <div className="flex-1 flex flex-col md:flex-row gap-0 overflow-hidden">
-
-                {/* File preview pane */}
                 <div className="flex-1 overflow-auto bg-slate-100/40 flex items-start justify-center p-6">
                     {doc.file_url ? (
                         <div className="w-full max-w-2xl">
-                            {/* Open in new tab */}
                             <div className="flex items-center justify-between mb-3">
                                 <p className="text-xs font-semibold text-slate-500">
                                     {doc.file_name || "Uploaded document"}
@@ -271,8 +269,8 @@ function DocumentViewer({
                             {isPDF ? (
                                 <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
                                     <iframe
-                                        src={doc.file_url}
-                                        className="w-full"
+                                        src={`${doc.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
+                                        className="w-full border-0"
                                         style={{ height: "70vh" }}
                                         title={doc.name}
                                     />
@@ -287,7 +285,6 @@ function DocumentViewer({
                                     />
                                 </div>
                             ) : (
-                                /* Generic preview fallback */
                                 <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-lg p-12 flex flex-col items-center gap-4 text-slate-400">
                                     <FileText className="w-16 h-16 opacity-20" />
                                     <p className="text-sm font-semibold">Preview not available for this file type.</p>
@@ -303,7 +300,6 @@ function DocumentViewer({
                             )}
                         </div>
                     ) : (
-                        /* No file uploaded */
                         <div className="flex flex-col items-center justify-center gap-4 py-24 text-slate-400">
                             <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center">
                                 <FileText className="w-10 h-10 opacity-30" />
@@ -321,10 +317,7 @@ function DocumentViewer({
                     )}
                 </div>
 
-                {/* Right action panel */}
                 <div className="w-full md:w-80 shrink-0 border-l border-slate-100 bg-white overflow-y-auto flex flex-col gap-0">
-
-                    {/* Document info */}
                     <div className="p-5 border-b border-slate-100">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Document Info</p>
                         <div className="space-y-2 text-xs">
@@ -337,7 +330,7 @@ function DocumentViewer({
                                 <span className={cn(
                                     "font-bold",
                                     doc.requirement === "Mandatory" ? "text-rose-600" :
-                                    doc.requirement === "Conditional" ? "text-amber-600" : "text-slate-500"
+                                        doc.requirement === "Conditional" ? "text-amber-600" : "text-slate-500"
                                 )}>{doc.requirement}</span>
                             </div>
                             {doc.file_name && (
@@ -357,7 +350,6 @@ function DocumentViewer({
                         </div>
                     </div>
 
-                    {/* Show existing remarks / rejection reason */}
                     {(doc.rejected_reason || doc.admin_remarks) && (
                         <div className={cn(
                             "p-4 border-b border-slate-100",
@@ -384,7 +376,6 @@ function DocumentViewer({
                         </div>
                     )}
 
-                    {/* Approve with remarks */}
                     {showApproveBox && (
                         <div className="p-5 border-b border-slate-100 bg-emerald-50/50">
                             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-3">
@@ -408,7 +399,6 @@ function DocumentViewer({
                         </div>
                     )}
 
-                    {/* Reject panel */}
                     <div className="p-5 border-b border-slate-100">
                         <div className="flex items-center gap-2 mb-3">
                             <AlertOctagon className="w-3.5 h-3.5 text-rose-500" />
@@ -433,43 +423,9 @@ function DocumentViewer({
                             <X className="w-3.5 h-3.5" /> Reject Document
                         </button>
                     </div>
-
-                    {/* AI compliance panel */}
-                    <div className="p-5 bg-slate-900 flex-1">
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3">
-                            <ShieldCheck className="w-4 h-4 text-blue-400" />
-                        </div>
-                        <p className="text-sm font-bold text-white mb-1.5">AI Compliance Check</p>
-                        <p className="text-[10px] text-slate-400 leading-relaxed">
-                            {doc.file_url
-                                ? "Document uploaded. Admin review required to confirm authenticity."
-                                : "No document uploaded by school yet."}
-                        </p>
-                        <div className="mt-4 flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                <div className={cn(
-                                    "h-full rounded-full transition-all",
-                                    doc.status === "Approved" ? "bg-emerald-400 w-full" :
-                                    doc.status === "Rejected" ? "bg-rose-400 w-full" :
-                                    doc.file_url ? "bg-amber-400 w-2/3" : "bg-slate-600 w-1/4"
-                                )} />
-                            </div>
-                            <span className={cn(
-                                "text-[9px] font-black uppercase tracking-widest",
-                                doc.status === "Approved" ? "text-emerald-400" :
-                                doc.status === "Rejected" ? "text-rose-400" :
-                                doc.file_url ? "text-amber-400" : "text-slate-500"
-                            )}>
-                                {doc.status === "Approved" ? "Verified" :
-                                 doc.status === "Rejected" ? "Rejected" :
-                                 doc.file_url ? "Awaiting" : "Missing"}
-                            </span>
-                        </div>
-                    </div>
                 </div>
             </div>
 
-            {/* Fullscreen overlay */}
             {fullScreen && doc.file_url && (
                 <div className="fixed inset-0 z-[200] bg-slate-950/95 flex flex-col p-6">
                     <div className="flex items-center justify-between mb-4 shrink-0">
@@ -501,7 +457,11 @@ function DocumentViewer({
                     </div>
                     <div className="flex-1 rounded-2xl overflow-hidden border border-white/10 bg-white">
                         {isPDF ? (
-                            <iframe src={doc.file_url} className="w-full h-full border-0" title={doc.name} />
+                            <iframe
+                                src={`${doc.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
+                                className="w-full h-full border-0"
+                                title={doc.name}
+                            />
                         ) : isImage ? (
                             <div className="w-full h-full flex items-center justify-center bg-slate-100 p-8">
                                 <img src={doc.file_url} alt={doc.name} className="max-w-full max-h-full object-contain rounded-xl" />
@@ -509,7 +469,7 @@ function DocumentViewer({
                         ) : (
                             <div className="flex items-center justify-center h-full text-slate-400">
                                 <a href={doc.file_url} target="_blank" rel="noreferrer"
-                                   className="px-8 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700">
+                                    className="px-8 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700">
                                     Download File
                                 </a>
                             </div>
@@ -524,19 +484,19 @@ function DocumentViewer({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DocumentsPage() {
-    const [currentUser, setCurrentUser]             = React.useState<StoredUser | null>(null);
-    const [schools, setSchools]                     = React.useState<SchoolDocSummary[]>([]);
-    const [totalPending, setTotalPending]           = React.useState(0);
-    const [schoolsLoading, setSchoolsLoading]       = React.useState(true);
-    const [schoolSearch, setSchoolSearch]           = React.useState("");
-    const [selectedSchool, setSelectedSchool]       = React.useState<SchoolDocSummary | null>(null);
-    const [pageData, setPageData]                   = React.useState<DocsPageData | null>(null);
-    const [docsLoading, setDocsLoading]             = React.useState(false);
-    const [selectedDocId, setSelectedDocId]         = React.useState<string | null>(null);
-    const [actionLoading, setActionLoading]         = React.useState(false);
-    const [actionError, setActionError]             = React.useState<string | null>(null);
+    const [currentUser, setCurrentUser] = React.useState<StoredUser | null>(null);
+    const [schools, setSchools] = React.useState<SchoolDocSummary[]>([]);
+    const [totalPending, setTotalPending] = React.useState(0);
+    const [schoolsLoading, setSchoolsLoading] = React.useState(true);
+    const [schoolSearch, setSchoolSearch] = React.useState("");
+    const [selectedSchool, setSelectedSchool] = React.useState<SchoolDocSummary | null>(null);
+    const [pageData, setPageData] = React.useState<DocsPageData | null>(null);
+    const [docsLoading, setDocsLoading] = React.useState(false);
+    const [selectedDocId, setSelectedDocId] = React.useState<string | null>(null);
+    const [actionLoading, setActionLoading] = React.useState(false);
+    const [actionError, setActionError] = React.useState<string | null>(null);
 
-    // ── Auth guard ──────────────────────────────────────────────────────────
+    // Auth guard
     React.useEffect(() => {
         try {
             const raw = localStorage.getItem("user");
@@ -547,7 +507,7 @@ export default function DocumentsPage() {
         } catch { window.location.href = "/login"; }
     }, []);
 
-    // ── Fetch school list ────────────────────────────────────────────────────
+    // Fetch school list
     const fetchSchools = React.useCallback(async (token: string, search = "") => {
         setSchoolsLoading(true);
         try {
@@ -561,7 +521,6 @@ export default function DocumentsPage() {
             setSchools(data.schools || []);
             setTotalPending(data.total_pending || 0);
 
-            // Auto-select first school if none selected
             if ((data.schools || []).length > 0 && !selectedSchool) {
                 setSelectedSchool(data.schools[0]);
             }
@@ -576,7 +535,7 @@ export default function DocumentsPage() {
         if (currentUser) fetchSchools(currentUser.access_token, schoolSearch);
     }, [currentUser, schoolSearch]);
 
-    // ── Fetch documents for selected school ──────────────────────────────────
+    // Fetch documents for selected school
     React.useEffect(() => {
         if (!selectedSchool || !currentUser) return;
         setDocsLoading(true);
@@ -593,17 +552,17 @@ export default function DocumentsPage() {
             .finally(() => setDocsLoading(false));
     }, [selectedSchool?.school_id, currentUser]);
 
-    // ── Flat list for prev/next ──────────────────────────────────────────────
-    const flatList      = React.useMemo(() => pageData ? flatDocs(pageData.categories) : [], [pageData]);
-    const selectedDoc   = React.useMemo(() => flatList.find(d => d.doc_id === selectedDocId) ?? null, [flatList, selectedDocId]);
-    const currentIndex  = flatList.findIndex(d => d.doc_id === selectedDocId);
-    const hasNext       = currentIndex >= 0 && currentIndex < flatList.length - 1;
-    const hasPrevious   = currentIndex > 0;
+    // Flat list for prev/next (only documents with file_url)
+    const flatList = React.useMemo(() => pageData ? flatDocs(pageData.categories) : [], [pageData]);
+    const selectedDoc = React.useMemo(() => flatList.find(d => d.doc_id === selectedDocId) ?? null, [flatList, selectedDocId]);
+    const currentIndex = flatList.findIndex(d => d.doc_id === selectedDocId);
+    const hasNext = currentIndex >= 0 && currentIndex < flatList.length - 1;
+    const hasPrevious = currentIndex > 0;
 
-    const handleNext     = () => { if (hasNext)     { setSelectedDocId(flatList[currentIndex + 1].doc_id); setActionError(null); } };
+    const handleNext = () => { if (hasNext) { setSelectedDocId(flatList[currentIndex + 1].doc_id); setActionError(null); } };
     const handlePrevious = () => { if (hasPrevious) { setSelectedDocId(flatList[currentIndex - 1].doc_id); setActionError(null); } };
 
-    // ── Update local state helper ────────────────────────────────────────────
+    // Update local state helper
     const updateDocLocally = (docId: string, patch: Partial<DocumentItem>) => {
         setPageData(prev => {
             if (!prev) return prev;
@@ -614,14 +573,14 @@ export default function DocumentsPage() {
             const allDocs = categories.flatMap(c => c.docs);
             const stats = {
                 approved: allDocs.filter(d => d.status === "Approved").length,
-                pending:  allDocs.filter(d => d.status === "Pending").length,
+                pending: allDocs.filter(d => d.status === "Pending").length,
                 rejected: allDocs.filter(d => d.status === "Rejected").length,
             };
             return { ...prev, categories, stats };
         });
     };
 
-    // ── Approve ──────────────────────────────────────────────────────────────
+    // Approve
     const handleApprove = async (remarks?: string) => {
         if (!currentUser || !selectedSchool || !selectedDoc) return;
         setActionLoading(true);
@@ -630,9 +589,9 @@ export default function DocumentsPage() {
             const res = await fetch(
                 `${API_BASE_URL}/admin/documents/${selectedSchool.school_id}/${selectedDoc.doc_id}/approve`,
                 {
-                    method:  "POST",
+                    method: "POST",
                     headers: getHeaders(currentUser.access_token),
-                    body:    JSON.stringify({ admin_remarks: remarks || null }),
+                    body: JSON.stringify({ admin_remarks: remarks || null }),
                 },
             );
             if (!res.ok) {
@@ -648,7 +607,7 @@ export default function DocumentsPage() {
         }
     };
 
-    // ── Reject ───────────────────────────────────────────────────────────────
+    // Reject
     const handleReject = async (reason: string) => {
         if (!currentUser || !selectedSchool || !selectedDoc || !reason.trim()) return;
         setActionLoading(true);
@@ -657,9 +616,9 @@ export default function DocumentsPage() {
             const res = await fetch(
                 `${API_BASE_URL}/admin/documents/${selectedSchool.school_id}/${selectedDoc.doc_id}/reject`,
                 {
-                    method:  "POST",
+                    method: "POST",
                     headers: getHeaders(currentUser.access_token),
-                    body:    JSON.stringify({ rejection_reason: reason }),
+                    body: JSON.stringify({ rejection_reason: reason }),
                 },
             );
             if (!res.ok) {
@@ -675,7 +634,7 @@ export default function DocumentsPage() {
         }
     };
 
-    // ── Reset ────────────────────────────────────────────────────────────────
+    // Reset
     const handleReset = async () => {
         if (!currentUser || !selectedSchool || !selectedDoc) return;
         setActionLoading(true);
@@ -697,18 +656,16 @@ export default function DocumentsPage() {
 
     if (!currentUser) return null;
 
-    // ── Review status colour map ─────────────────────────────────────────────
     const reviewStatusStyle: Record<string, string> = {
-        Approved:  "text-emerald-500",
-        Rejected:  "text-rose-500",
+        Approved: "text-emerald-500",
+        Rejected: "text-rose-500",
         Reviewing: "text-amber-500",
-        Pending:   "text-slate-400",
+        Pending: "text-slate-400",
     };
 
     return (
         <div className="flex flex-col h-[calc(100vh-120px)] space-y-5 animate-in fade-in duration-500">
-
-            {/* ── Page Header ── */}
+            {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">Document Verification</h1>
@@ -732,12 +689,10 @@ export default function DocumentsPage() {
                 </div>
             </div>
 
-            {/* ── Main panel ── */}
+            {/* Main panel */}
             <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col md:flex-row min-h-0">
-
-                {/* ── LEFT: School list ── */}
+                {/* LEFT: School list */}
                 <div className="w-full md:w-72 shrink-0 border-r border-slate-100 flex flex-col bg-slate-50/30 min-h-0">
-                    {/* Search */}
                     <div className="p-4 border-b border-slate-100 bg-white/60 shrink-0">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -750,8 +705,6 @@ export default function DocumentsPage() {
                             />
                         </div>
                     </div>
-
-                    {/* School list */}
                     <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
                         {schoolsLoading ? (
                             <div className="flex justify-center py-16">
@@ -808,7 +761,7 @@ export default function DocumentsPage() {
                     </div>
                 </div>
 
-                {/* ── RIGHT: Document panel ── */}
+                {/* RIGHT: Document panel */}
                 <div className="flex-1 flex flex-col min-h-0 min-w-0">
                     {docsLoading ? (
                         <div className="flex-1 flex items-center justify-center">
@@ -825,7 +778,6 @@ export default function DocumentsPage() {
                             </div>
                         </div>
                     ) : selectedDoc ? (
-                        /* ── Document viewer ── */
                         <DocumentViewer
                             doc={selectedDoc}
                             schoolName={pageData.school_name}
@@ -841,10 +793,9 @@ export default function DocumentsPage() {
                             actionError={actionError}
                         />
                     ) : (
-                        /* ── Document list ── */
+                        /* Document list – only categories with uploaded docs are shown */
                         <div className="flex-1 overflow-y-auto p-6">
                             <div className="max-w-3xl mx-auto space-y-6">
-
                                 {/* Stats bar */}
                                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                                     <div>
@@ -867,85 +818,87 @@ export default function DocumentsPage() {
                                     </div>
                                 </div>
 
-                                {/* Categories */}
-                                {pageData.categories.map((category, ci) => (
-                                    <div key={ci} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-100">
-                                            <h3 className="text-sm font-bold text-slate-700">{category.category}</h3>
-                                        </div>
-                                        <div className="divide-y divide-slate-50">
-                                            {category.docs.map(doc => (
-                                                <div
-                                                    key={doc.doc_id}
-                                                    className="px-5 py-4 flex items-center justify-between gap-4 hover:bg-slate-50/40 transition-colors"
-                                                >
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <div className={cn(
-                                                            "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
-                                                            doc.status === "Approved"     ? "bg-emerald-50 text-emerald-500" :
-                                                            doc.status === "Rejected"     ? "bg-rose-50 text-rose-500" :
-                                                            doc.status === "Not Required" ? "bg-slate-100 text-slate-400" :
-                                                            doc.file_url                  ? "bg-blue-50 text-blue-500" :
-                                                                                            "bg-amber-50 text-amber-500"
-                                                        )}>
-                                                            <FileIcon contentType={doc.content_type} />
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <p className={cn(
-                                                                    "text-sm font-bold truncate",
-                                                                    doc.status === "Not Required"
-                                                                        ? "text-slate-400 line-through"
-                                                                        : "text-slate-800"
-                                                                )}>
-                                                                    {doc.name}
+                                {/* Categories – skip those with no visible docs */}
+                                {pageData.categories.map((category, ci) => {
+                                    const visibleDocs = category.docs.filter(doc => !!doc.file_url);
+                                    if (visibleDocs.length === 0) return null;
+                                    return (
+                                        <div key={ci} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                            <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-100">
+                                                <h3 className="text-sm font-bold text-slate-700">{category.category}</h3>
+                                            </div>
+                                            <div className="divide-y divide-slate-50">
+                                                {visibleDocs.map(doc => (
+                                                    <div
+                                                        key={doc.doc_id}
+                                                        className="px-5 py-4 flex items-center justify-between gap-4 hover:bg-slate-50/40 transition-colors"
+                                                    >
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className={cn(
+                                                                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+                                                                doc.status === "Approved" ? "bg-emerald-50 text-emerald-500" :
+                                                                    doc.status === "Rejected" ? "bg-rose-50 text-rose-500" :
+                                                                        doc.status === "Not Required" ? "bg-slate-100 text-slate-400" :
+                                                                            doc.file_url ? "bg-blue-50 text-blue-500" :
+                                                                                "bg-amber-50 text-amber-500"
+                                                            )}>
+                                                                <FileIcon contentType={doc.content_type} />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <p className={cn(
+                                                                        "text-sm font-bold truncate",
+                                                                        doc.status === "Not Required"
+                                                                            ? "text-slate-400 line-through"
+                                                                            : "text-slate-800"
+                                                                    )}>
+                                                                        {doc.name}
+                                                                    </p>
+                                                                    {doc.requirement === "Mandatory" && (
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest bg-rose-50 text-rose-500 px-1.5 py-0.5 rounded-md border border-rose-100">
+                                                                            Required
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                                                    {doc.file_name || "File uploaded"}
+                                                                    {doc.uploaded_at && (
+                                                                        <span className="ml-1.5">
+                                                                            · {new Date(doc.uploaded_at).toLocaleDateString()}
+                                                                        </span>
+                                                                    )}
                                                                 </p>
-                                                                {doc.requirement === "Mandatory" && (
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest bg-rose-50 text-rose-500 px-1.5 py-0.5 rounded-md border border-rose-100">
-                                                                        Required
-                                                                    </span>
+                                                                {doc.status === "Rejected" && doc.rejected_reason && (
+                                                                    <p className="text-[10px] text-rose-500 mt-1 font-semibold">
+                                                                        ✗ {doc.rejected_reason}
+                                                                    </p>
+                                                                )}
+                                                                {doc.status === "Approved" && doc.admin_remarks && (
+                                                                    <p className="text-[10px] text-emerald-600 mt-1 font-semibold">
+                                                                        ✓ {doc.admin_remarks}
+                                                                    </p>
                                                                 )}
                                                             </div>
-                                                            <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                                                                {doc.file_url
-                                                                    ? (doc.file_name || "File uploaded")
-                                                                    : "No file uploaded yet"}
-                                                                {doc.uploaded_at && (
-                                                                    <span className="ml-1.5">
-                                                                        · {new Date(doc.uploaded_at).toLocaleDateString()}
-                                                                    </span>
-                                                                )}
-                                                            </p>
-                                                            {doc.status === "Rejected" && doc.rejected_reason && (
-                                                                <p className="text-[10px] text-rose-500 mt-1 font-semibold">
-                                                                    ✗ {doc.rejected_reason}
-                                                                </p>
-                                                            )}
-                                                            {doc.status === "Approved" && doc.admin_remarks && (
-                                                                <p className="text-[10px] text-emerald-600 mt-1 font-semibold">
-                                                                    ✓ {doc.admin_remarks}
-                                                                </p>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-3 shrink-0">
+                                                            <StatusBadge status={doc.status} />
+                                                            {doc.status !== "Not Required" && (
+                                                                <button
+                                                                    onClick={() => setSelectedDocId(doc.doc_id)}
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm"
+                                                                >
+                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                    Review
+                                                                </button>
                                                             )}
                                                         </div>
                                                     </div>
-
-                                                    <div className="flex items-center gap-3 shrink-0">
-                                                        <StatusBadge status={doc.status} />
-                                                        {doc.status !== "Not Required" && (
-                                                            <button
-                                                                onClick={() => setSelectedDocId(doc.doc_id)}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm"
-                                                            >
-                                                                <Eye className="w-3.5 h-3.5" />
-                                                                Review
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

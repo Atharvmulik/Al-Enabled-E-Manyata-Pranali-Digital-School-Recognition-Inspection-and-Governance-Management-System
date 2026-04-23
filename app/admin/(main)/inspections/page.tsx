@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 import { API_BASE_URL } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
 type StoredUser = {
     user_id: string;
     email: string;
@@ -26,7 +25,6 @@ type StoredUser = {
     access_token: string;
 };
 
-// This is the shared type used by all 3 modals
 export type InspectionData = {
     inspection_id: string;
     school_id: string;
@@ -48,22 +46,18 @@ type InspectionsResponse = {
     active_count: number;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const getAuthHeader = (token: string) => ({
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
 });
 
 const STATUS_COLORS: Record<string, string> = {
-    "Scheduled": "bg-blue-50 text-blue-600",
-    "Pending": "bg-amber-50 text-amber-600",
+    Scheduled: "bg-blue-50 text-blue-600",
+    Pending: "bg-amber-50 text-amber-600",
     "In Progress": "bg-indigo-50 text-indigo-600",
-    "Completed": "bg-emerald-50 text-emerald-600",
-    "Cancelled": "bg-slate-100 text-slate-500",
+    Completed: "bg-emerald-50 text-emerald-600",
+    Cancelled: "bg-slate-100 text-slate-500",
 };
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function InspectionsPage() {
     const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
@@ -73,17 +67,15 @@ export default function InspectionsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Filters
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [districtFilter, setDistrictFilter] = useState("");
 
-    // Modals
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [reassignTarget, setReassignTarget] = useState<InspectionData | null>(null);
     const [selectedInspection, setSelectedInspection] = useState<InspectionData | null>(null);
 
-    // ── Auth guard ──────────────────────────────────────────────────────────
+    // Auth guard
     useEffect(() => {
         try {
             const raw = localStorage.getItem("user");
@@ -96,7 +88,6 @@ export default function InspectionsPage() {
         }
     }, []);
 
-    // ── Fetch inspections ───────────────────────────────────────────────────
     const fetchInspections = useCallback(async (token: string) => {
         setLoading(true);
         setError(null);
@@ -127,7 +118,6 @@ export default function InspectionsPage() {
         if (currentUser) fetchInspections(currentUser.access_token);
     }, [currentUser, fetchInspections]);
 
-    // Called after scheduling or reassigning — refresh list
     const handleRefresh = () => {
         if (currentUser) fetchInspections(currentUser.access_token);
     };
@@ -175,9 +165,29 @@ export default function InspectionsPage() {
                         className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                     />
                 </div>
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                    {/* Filters removed */}
-                </div>
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10"
+                >
+                    <option value="">All Statuses</option>
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+                <select
+                    value={districtFilter}
+                    onChange={(e) => setDistrictFilter(e.target.value)}
+                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10"
+                >
+                    <option value="">All Districts</option>
+                    <option value="Lucknow">Lucknow</option>
+                    <option value="Kanpur">Kanpur</option>
+                    <option value="Agra">Agra</option>
+                    <option value="Meerut">Meerut</option>
+                    <option value="Varanasi">Varanasi</option>
+                </select>
             </div>
 
             {/* Error */}
@@ -291,28 +301,28 @@ export default function InspectionsPage() {
                 )}
             </div>
 
-            {/* ── Modals ─────────────────────────────────────────────────── */}
+            {/* Modals */}
             <ScheduleInspectionModal
                 isOpen={showScheduleModal}
                 onClose={() => setShowScheduleModal(false)}
-                onSuccess={handleRefresh}           // ← ADD
-                token={currentUser?.access_token}   // ← ADD
+                onSuccess={handleRefresh}
+                token={currentUser.access_token}
             />
 
             <ReassignInspectorModal
                 isOpen={!!reassignTarget}
                 onClose={() => setReassignTarget(null)}
                 inspection={reassignTarget}
-                onSuccess={handleRefresh}           // ← ADD
-                token={currentUser?.access_token}   // ← ADD
+                onSuccess={handleRefresh}
+                token={currentUser.access_token}
             />
 
             <InspectionDetailsModal
                 isOpen={!!selectedInspection}
                 onClose={() => setSelectedInspection(null)}
                 inspection={selectedInspection}
-                token={currentUser?.access_token}   // ← ADD
-                onStatusUpdate={handleRefresh}      // ← ADD
+                token={currentUser.access_token}
+                onStatusUpdate={handleRefresh}
             />
         </div>
     );
