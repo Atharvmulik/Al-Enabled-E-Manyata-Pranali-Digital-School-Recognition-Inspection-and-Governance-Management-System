@@ -59,11 +59,10 @@ function QRPlaceholder() {
                 {Array.from({ length: 9 }).map((_, i) => (
                     <div
                         key={i}
-                        className={`w-full h-full ${
-                            [0, 1, 2, 3, 5, 6, 8].includes(i)
-                                ? "bg-neutral-700"
-                                : "bg-white"
-                        }`}
+                        className={`w-full h-full ${[0, 1, 2, 3, 5, 6, 8].includes(i)
+                            ? "bg-neutral-700"
+                            : "bg-white"
+                            }`}
                     />
                 ))}
             </div>
@@ -133,63 +132,25 @@ export default function CertificatesPage() {
     }, [router]);
 
     // ── Download handler ──────────────────────────────────────
-    async function handleDownload(cert: CertificateItem) {
-        setDownloadError(null);
-
-        // If we already have a URL, open directly
-        if (cert.download_url) {
-            window.open(cert.download_url, "_blank");
-            return;
-        }
-
-        const raw = localStorage.getItem("user");
-        if (!raw) return;
-        const user = JSON.parse(raw);
-        const token = localStorage.getItem("token");
-
-        try {
-            setDownloadingId(cert.id);
-            const res = await fetch(
-                `${API_BASE_URL}/certificates/${user.user_id}/${cert.id}/download`,
-                {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || "Download unavailable.");
-            }
-
-            const json: { certificate_id: string; download_url: string } = await res.json();
-
-            // Update local state so next click opens directly
-            setData((prev) => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    certificates: prev.certificates.map((c) =>
-                        c.id === cert.id ? { ...c, download_url: json.download_url } : c
-                    ),
-                };
-            });
-
-            window.open(json.download_url, "_blank");
-        } catch (e) {
-            setDownloadError((e as Error).message);
-        } finally {
-            setDownloadingId(null);
-        }
+    // ── Download handler ──────────────────────────────────────
+    function handleDownload(cert: CertificateItem) {
+    if (!cert.download_url) {
+        alert("Download not available");
+        return;
     }
+    window.open(cert.download_url, "_blank");
+}
+        
+
 
     // ── View handler ──────────────────────────────────────────
-    function handleView(certId: string) {
-        const raw = localStorage.getItem("user");
-        if (!raw) return;
-        const user = JSON.parse(raw);
-        router.push(`/certificates/${certId}?school=${user.user_id}`);
+    function handleView(cert: CertificateItem) {
+    if (!cert.download_url) {
+        alert("Certificate not available");
+        return;
     }
+    window.open(cert.download_url, "_blank");
+}
 
     // ─────────────────────────────────────────────
     // Loading state
@@ -297,11 +258,10 @@ export default function CertificatesPage() {
                                 {/* Left: Certificate visual */}
                                 <div className="flex items-center gap-4 flex-1">
                                     <div
-                                        className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
-                                            cert.status === "Active"
-                                                ? "bg-gradient-to-br from-emerald-400 to-emerald-600"
-                                                : "bg-gradient-to-br from-neutral-300 to-neutral-400"
-                                        }`}
+                                        className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${cert.status === "Active"
+                                            ? "bg-gradient-to-br from-emerald-400 to-emerald-600"
+                                            : "bg-gradient-to-br from-neutral-300 to-neutral-400"
+                                            }`}
                                     >
                                         <FiAward size={24} className="text-white" />
                                     </div>
@@ -330,22 +290,20 @@ export default function CertificatesPage() {
                                     <div>
                                         <p className="text-xs text-neutral-400">Status</p>
                                         <span
-                                            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${
-                                                cert.status === "Active"
-                                                    ? "bg-emerald-50 text-emerald-700"
-                                                    : cert.status === "Revoked"
+                                            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${cert.status === "Active"
+                                                ? "bg-emerald-50 text-emerald-700"
+                                                : cert.status === "Revoked"
                                                     ? "bg-orange-50 text-orange-600"
                                                     : "bg-red-50 text-red-600"
-                                            }`}
+                                                }`}
                                         >
                                             <span
-                                                className={`w-1.5 h-1.5 rounded-full ${
-                                                    cert.status === "Active"
-                                                        ? "bg-emerald-500"
-                                                        : cert.status === "Revoked"
+                                                className={`w-1.5 h-1.5 rounded-full ${cert.status === "Active"
+                                                    ? "bg-emerald-500"
+                                                    : cert.status === "Revoked"
                                                         ? "bg-orange-400"
                                                         : "bg-red-400"
-                                                }`}
+                                                    }`}
                                             />
                                             {cert.status}
                                         </span>
@@ -358,8 +316,7 @@ export default function CertificatesPage() {
 
                                     <div className="flex flex-col gap-2">
                                         <button
-                                            onClick={() => handleView(cert.id)}
-                                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors"
+                                            onClick={() => handleView(cert)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors"
                                         >
                                             <FiEye size={14} /> View
                                         </button>

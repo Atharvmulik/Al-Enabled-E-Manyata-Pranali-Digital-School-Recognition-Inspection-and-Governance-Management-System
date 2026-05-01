@@ -1,1 +1,1 @@
-export const API_BASE_URL = "https://centuries-viewpicture-incredible-connection.trycloudflare.com";
+export const API_BASE_URL = "https://athletic-ranks-apply-class.trycloudflare.com";

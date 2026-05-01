@@ -46,14 +46,25 @@ interface InspectionPageResponse {
 // ─── API Functions ──────────────────────────────────────────────────────────────
 
 async function fetchInspectionPage(schoolId: string): Promise<InspectionPageResponse> {
-  const res = await fetch(`${API_BASE_URL}/inspection/${schoolId}`);
+  const raw = localStorage.getItem("user");
+  const token = raw ? JSON.parse(raw).access_token : null;
+
+  const res = await fetch(`${API_BASE_URL}/inspection/${schoolId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    }
+  });
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err?.detail ?? `Error ${res.status}`);
   }
+
   return res.json();
 }
-
+    
 // ─── Style maps ─────────────────────────────────────────────────────────────────
 
 const checklistStyle: Record<
