@@ -19,6 +19,8 @@ export type RootStackParamList = {
   EvidenceUpload: { inspectionId: string };
   FinalReport: { inspectionId: string };
   EditProfile: undefined;
+  Certificate: { inspection_id: string };
+  VerifyCertificate: { certificate_id: string };
 };
 
 // Inspection Stack Navigator Params (if needed)

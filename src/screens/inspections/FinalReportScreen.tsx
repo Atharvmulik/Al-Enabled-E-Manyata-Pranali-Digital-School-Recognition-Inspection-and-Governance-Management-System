@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,41 +21,40 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Slider from '@react-native-community/slider';
 
 import { RootStackParamList } from '@/navigation';
-import { useInspectionStore } from '@/store';
 import { Card, Button } from '@/components';
 import { Colors, Spacing, BorderRadius, Typography } from '@/theme';
-import { RiskCategory, RecommendationType } from '@/types';
+import api from '@/lib/api';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-const riskCategories: { value: RiskCategory; label: string; color: string; description: string }[] = [
-  { 
-    value: 'low', 
-    label: 'Low Risk', 
+const riskCategories: { value: string; label: string; color: string; description: string }[] = [
+  {
+    value: 'low',
+    label: 'Low Risk',
     color: Colors.success,
     description: 'School meets all standards with minor observations'
   },
-  { 
-    value: 'medium', 
-    label: 'Medium Risk', 
+  {
+    value: 'medium',
+    label: 'Medium Risk',
     color: Colors.warning,
     description: 'Some areas need improvement within 3 months'
   },
-  { 
-    value: 'high', 
-    label: 'High Risk', 
+  {
+    value: 'high',
+    label: 'High Risk',
     color: '#F97316',
     description: 'Significant issues requiring immediate attention'
   },
-  { 
-    value: 'critical', 
-    label: 'Critical Risk', 
+  {
+    value: 'critical',
+    label: 'Critical Risk',
     color: Colors.error,
     description: 'Severe violations, immediate action required'
   },
 ];
 
-const recommendations: { value: RecommendationType; label: string; icon: string; color: string }[] = [
+const recommendations: { value: string; label: string; icon: string; color: string }[] = [
   { value: 'approve', label: 'Approve', icon: 'check-circle', color: Colors.success },
   { value: 'reject', label: 'Reject', icon: 'close-circle', color: Colors.error },
   { value: 're_inspection', label: 'Re-Inspection', icon: 'refresh', color: Colors.warning },
@@ -65,29 +64,63 @@ export const FinalReportScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'FinalReport'>>();
   const { inspectionId } = route.params;
-  
-  const inspection = useInspectionStore(state => state.getInspectionById(inspectionId));
-  const submitFinalReport = useInspectionStore(state => state.submitFinalReport);
 
   const [overallScore, setOverallScore] = useState(70);
-  const [selectedRisk, setSelectedRisk] = useState<RiskCategory>('low');
-  const [selectedRecommendation, setSelectedRecommendation] = useState<RecommendationType>('approve');
+  const [selectedRisk, setSelectedRisk] = useState<string>('low');
+  const [selectedRecommendation, setSelectedRecommendation] = useState<string>('approve');
   const [summary, setSummary] = useState('');
   const [weaknesses, setWeaknesses] = useState<string[]>(['']);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reportExists, setReportExists] = useState(false);
 
-  if (!inspection) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Inspection not found</Text>
-      </View>
-    );
-  }
+  // New state for validation
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [evidenceList, setEvidenceList] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  // Fetch documents and evidence on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [docsRes, evidenceRes] = await Promise.all([
+          api.get(`/inspection/${inspectionId}/documents`),
+          api.get(`/inspection/${inspectionId}/evidence`),
+        ]);
+        setDocuments(docsRes.data.documents || []);
+        setEvidenceList(evidenceRes.data.evidence || []);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to load inspection data');
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    const checkFinalReport = async () => {
+      try {
+        const res = await api.get(`/inspection/${inspectionId}/final-report`);
+
+        if (res.data) {
+          setReportExists(true);
+
+          // 🚀 DIRECT REDIRECT TO CERTIFICATE
+          navigation.replace('Certificate', { inspection_id: inspectionId });
+        }
+      } catch (err: any) {
+        if (err.response?.status !== 404) {
+          console.log(err);
+        }
+      }
+    };
+    fetchData();
+    checkFinalReport();
+
+  }, [inspectionId]);
 
   const handleAddField = (type: 'weakness') => {
     if (type === 'weakness') setWeaknesses([...weaknesses, '']);
   };
+
 
   const handleUpdateField = (type: 'weakness', index: number, value: string) => {
     if (type === 'weakness') {
@@ -97,7 +130,30 @@ export const FinalReportScreen: React.FC = () => {
     }
   };
 
+
   const handleSubmit = async () => {
+    // Validation: all documents must be verified
+    const allDocumentsVerified =
+      documents.length > 0 &&
+      documents.every((doc: any) => doc.status === 'verified');
+    if (!allDocumentsVerified) {
+      Alert.alert(
+        'Documents Pending',
+        'You must verify all documents before submitting the final report.'
+      );
+      return;
+    }
+
+    // Validation: at least one evidence item
+    const hasEvidence = evidenceList.length > 0;
+    if (!hasEvidence) {
+      Alert.alert(
+        'Evidence Required',
+        'You must upload at least one photo or video evidence before submitting the final report.'
+      );
+      return;
+    }
+
     if (!summary.trim()) {
       Alert.alert('Error', 'Please provide a summary');
       return;
@@ -105,22 +161,27 @@ export const FinalReportScreen: React.FC = () => {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    submitFinalReport(inspectionId, {
-      overallScore,
-      riskCategory: selectedRisk,
-      recommendation: selectedRecommendation,
-      summary,
-      weaknesses: weaknesses.filter(w => w.trim()),
-      submittedAt: new Date().toISOString(),
-      submittedBy: 'Inspector Rajesh Kumar',
-    });
-
-
-    setIsSubmitting(false);
-    setShowConfirmation(true);
+    try {
+      await api.post(`/inspection/${inspectionId}/final-report`, {
+        overall_score: Math.round(overallScore),   // 🔥 ensure integer
+        risk_category: selectedRisk,
+        recommendation: selectedRecommendation,
+        summary: summary.trim(),                  // 🔥 important
+        weaknesses: weaknesses.filter(w => w.trim()),
+      });
+      setShowConfirmation(true);
+    } catch (error: any) {
+      // Handle backend validation errors
+      let message = 'Failed to submit report';
+      if (error.response?.data?.detail) {
+        message = error.response.data.detail;
+      } else if (error.message) {
+        message = error.message;
+      }
+      Alert.alert('Submission Error', message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getScoreColor = () => {
@@ -128,6 +189,14 @@ export const FinalReportScreen: React.FC = () => {
     if (overallScore >= 60) return Colors.warning;
     return Colors.error;
   };
+
+  if (loadingData) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Loading inspection data...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -173,7 +242,7 @@ export const FinalReportScreen: React.FC = () => {
               key={risk.value}
               style={[
                 styles.riskCard,
-                selectedRisk === risk.value && { 
+                selectedRisk === risk.value && {
                   borderColor: risk.color,
                   backgroundColor: `${risk.color}15`,
                 }
@@ -195,17 +264,17 @@ export const FinalReportScreen: React.FC = () => {
               key={rec.value}
               style={[
                 styles.recommendationCard,
-                selectedRecommendation === rec.value && { 
+                selectedRecommendation === rec.value && {
                   borderColor: rec.color,
                   backgroundColor: `${rec.color}15`,
                 }
               ]}
               onPress={() => setSelectedRecommendation(rec.value)}
             >
-              <Icon 
-                name={rec.icon} 
-                size={32} 
-                color={selectedRecommendation === rec.value ? rec.color : Colors.textMuted} 
+              <Icon
+                name={rec.icon}
+                size={32}
+                color={selectedRecommendation === rec.value ? rec.color : Colors.textMuted}
               />
               <Text style={[
                 styles.recommendationLabel,
@@ -228,7 +297,6 @@ export const FinalReportScreen: React.FC = () => {
           onChangeText={setSummary}
         />
 
-
         {/* Weaknesses */}
         <Text style={styles.sectionLabel}>Areas for Improvement</Text>
         {weaknesses.map((weakness, index) => (
@@ -242,14 +310,13 @@ export const FinalReportScreen: React.FC = () => {
             />
           </View>
         ))}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
           onPress={() => handleAddField('weakness')}
         >
           <Icon name="plus" size={20} color={Colors.warning} />
           <Text style={styles.addButtonText}>Add Area</Text>
         </TouchableOpacity>
-
 
         {/* Submit Button */}
         <Button
@@ -281,6 +348,7 @@ export const FinalReportScreen: React.FC = () => {
             <Text style={styles.modalTitle}>Report Submitted!</Text>
             <Text style={styles.modalMessage}>
               Your inspection report has been submitted successfully.
+              {selectedRecommendation === 'approve' ? ' Certificate has been generated.' : ''}
             </Text>
             <View style={styles.modalDetails}>
               <Text style={styles.modalDetailText}>
@@ -298,10 +366,16 @@ export const FinalReportScreen: React.FC = () => {
               </Text>
             </View>
             <Button
-              title="Done"
+              title={selectedRecommendation === 'approve' ? 'View Certificate' : 'Done'}
               onPress={() => {
                 setShowConfirmation(false);
-                navigation.navigate('Main', { screen: 'Inspections' });
+                if (selectedRecommendation === 'approve') {
+                  // Navigate to CertificateScreen to view the generated certificate
+                  (navigation as any).navigate('Certificate', { inspection_id: inspectionId });
+                } else {
+                  // For reject / re_inspection: go back to inspections list
+                  navigation.navigate('Main', { screen: 'Inspections' });
+                }
               }}
               style={styles.modalButton}
             />
@@ -508,6 +582,16 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     minWidth: 120,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  loadingText: {
+    fontSize: Typography.sizes.base,
+    color: Colors.textSecondary,
   },
   errorContainer: {
     flex: 1,

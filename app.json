@@ -1,7 +1,52 @@
 {
   "name": "InspectionOfficerApp",
   "displayName": "EduInspect",
-  "plugins": [
-    "expo-router"
-  ]
+  "expo": {
+    "name": "EduInspect",
+    "slug": "edu-inspect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.eduinspect.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow EduInspect to access your camera to take photos/videos for inspection evidence.",
+        "NSPhotoLibraryUsageDescription": "Allow EduInspect to access your photos to select evidence images/videos."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.eduinspect.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow EduInspect to access your photos to select evidence images/videos.",
+          "cameraPermission": "Allow EduInspect to access your camera to take photos/videos for inspection evidence."
+        }
+      ]
+    ],
+    "scheme": "eduinspect"
+  }
 }

@@ -68,8 +68,9 @@ export interface Document {
   inspectionId: string;
   type: DocumentType;
   name: string;
-  fileUrl: string;
-  fileType: 'pdf' | 'image';
+  url?: string;
+  file_url?: string;
+  fileType:string;
   status: DocumentStatus;
   uploadedBy: string;
   uploadedAt: string;

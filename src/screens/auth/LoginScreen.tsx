@@ -27,9 +27,11 @@ import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 
 import { RootStackParamList } from '@/navigation';
-import { useAuthStore } from '@/store';
 import { Input, Button } from '@/components';
-import { Colors, Spacing, BorderRadius, Typography } from '@/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/theme';
+import api from '@/lib/api';
+import { saveAuthData, AuthUser } from '@/lib/authStorage';
+import { useAuthStore } from '@/store';
 
 const loginSchema = Yup.object().shape({
   email: Yup.string()
@@ -44,7 +46,6 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 
 export const LoginScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const login = useAuthStore(state => state.login);
   const [rememberMe, setRememberMe] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const lottieRef = useRef<LottieView>(null);
@@ -68,13 +69,49 @@ export const LoginScreen: React.FC = () => {
     transform: [{ translateY: formTranslateY.value }],
   }));
 
-  const handleLogin = async (values: { email: string; password: string }) => {
+  const handleLogin = async (values: { email: string; password: string }, { setSubmitting }: any) => {
     try {
-      await login(values.email, values.password, rememberMe);
-      // Removed manual navigation.replace('Main') because AppNavigator automatically
-      // handles the transition when isAuthenticated becomes true!
+      const response = await api.post('/auth/login', {
+        email: values.email,
+        password: values.password,
+      });
+
+      const { role, access_token, token_type, user_id, email, full_name } = response.data;
+
+      // Only allow inspector role
+      if (role !== 'inspector') {
+        Alert.alert('Access Denied', 'Only inspection officers can log in to this app.');
+        setSubmitting(false);
+        return;
+      }
+
+      // 1. Save auth data to AsyncStorage (for persistence across restarts)
+      const authUser: AuthUser = {
+        user_id,
+        email,
+        full_name,
+        role,
+        access_token,
+        token_type,
+      };
+      await saveAuthData(authUser);
+
+      // 2. Update Zustand store so AppNavigator's conditional re-renders
+      //    immediately and switches from Auth stack → Main stack.
+      //    No need to call navigation.replace — the navigator handles it.
+      const sessionExpiry = new Date();
+      sessionExpiry.setHours(sessionExpiry.getHours() + 8);
+      useAuthStore.setState({
+        isAuthenticated: true,
+        isHydrated: true,
+        token: access_token,
+        sessionExpiry: sessionExpiry.toISOString(),
+      });
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message);
+      const message = error.response?.data?.detail || 'Login failed. Please try again.';
+      Alert.alert('Login Failed', message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -190,12 +227,6 @@ export const LoginScreen: React.FC = () => {
                       size="large"
                       style={styles.loginButton}
                     />
-
-                    {/* Demo Credentials */}
-                    <View style={styles.demoContainer}>
-                      <Text style={styles.demoText}>Demo Credentials:</Text>
-                      <Text style={styles.demoCredentials}>rajesh.kumar@gov.in / password123</Text>
-                    </View>
                   </View>
                 )}
               </Formik>
@@ -362,7 +393,5 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
 });
-
-import { Shadows } from '@/theme';
 
 export default LoginScreen;

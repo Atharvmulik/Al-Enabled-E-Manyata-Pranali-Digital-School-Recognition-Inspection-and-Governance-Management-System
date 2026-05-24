@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,20 +20,31 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 
 import { RootStackParamList } from '@/navigation';
-import { useNotificationStore } from '@/store';
-import { Card, EmptyState, Badge } from '@/components';
+import { Card, EmptyState } from '@/components';
 import { Colors, Spacing, BorderRadius, Typography } from '@/theme';
-import { Notification, NotificationType } from '@/types';
+import api from '@/lib/api';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-const notificationTypeConfig: Record<NotificationType, { icon: string; color: string }> = {
+// Keep the same notification type config as before
+const notificationTypeConfig: Record<string, { icon: string; color: string }> = {
   assignment: { icon: 'clipboard-check', color: Colors.primary },
   reminder: { icon: 'clock-alert', color: Colors.warning },
   alert: { icon: 'alert-circle', color: Colors.error },
   update: { icon: 'information', color: Colors.info },
   system: { icon: 'cog', color: Colors.textMuted },
 };
+
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  related_type?: string;
+  related_id?: string;
+  is_read: boolean;
+  created_at: string;
+}
 
 interface NotificationItemProps {
   notification: Notification;
@@ -61,14 +72,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     opacity: opacity.value,
   }));
 
-  const config = notificationTypeConfig[notification.type];
-  const timeAgo = getTimeAgo(notification.createdAt);
+  const config = notificationTypeConfig[notification.type] || notificationTypeConfig.system;
+  const timeAgo = getTimeAgo(notification.created_at);
 
   const renderRightActions = () => (
-    <TouchableOpacity 
-      style={styles.deleteAction}
-      onPress={onDelete}
-    >
+    <TouchableOpacity style={styles.deleteAction} onPress={onDelete}>
       <Icon name="delete" size={24} color={Colors.textInverse} />
       <Text style={styles.deleteActionText}>Delete</Text>
     </TouchableOpacity>
@@ -78,26 +86,30 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     <AnimatedView style={animatedStyle}>
       <Swipeable renderRightActions={renderRightActions}>
         <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-          <Card style={
-            !notification.isRead 
-              ? { ...styles.notificationCard, ...styles.unreadCard }
-              : styles.notificationCard
-          }>
+          <Card
+            style={
+              !notification.is_read
+                ? { ...styles.notificationCard, ...styles.unreadCard }
+                : styles.notificationCard
+            }
+          >
             <View style={styles.notificationContent}>
-              <View style={[styles.iconContainer, { backgroundColor: `${config.color}20` }]}>
+              <View
+                style={[styles.iconContainer, { backgroundColor: `${config.color}20` }]}
+              >
                 <Icon name={config.icon} size={24} color={config.color} />
               </View>
               <View style={styles.textContainer}>
                 <View style={styles.titleRow}>
-                  <Text style={[
-                    styles.notificationTitle,
-                    !notification.isRead && styles.unreadTitle
-                  ]}>
+                  <Text
+                    style={[
+                      styles.notificationTitle,
+                      !notification.is_read && styles.unreadTitle,
+                    ]}
+                  >
                     {notification.title}
                   </Text>
-                  {!notification.isRead && (
-                    <View style={styles.unreadDot} />
-                  )}
+                  {!notification.is_read && <View style={styles.unreadDot} />}
                 </View>
                 <Text style={styles.notificationMessage} numberOfLines={2}>
                   {notification.message}
@@ -124,39 +136,94 @@ function getTimeAgo(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-
 export const NotificationsScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const { 
-    notifications, 
-    isLoading, 
-    fetchNotifications, 
-    markAsRead, 
-    markAllAsRead,
-    deleteNotification 
-  } = useNotificationStore();
 
+  // Local state (replaces the store)
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
+  // Fetch notifications from API
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/inspection/notifications');
+      setNotifications(response.data.notifications || []);
+      setUnreadCount(response.data.unread_count || 0);
+    } catch (error) {
+      console.error('Failed to load notifications', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Pull-to-refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchNotifications();
     setRefreshing(false);
   }, [fetchNotifications]);
 
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const handleNotificationPress = (notification: Notification) => {
-    if (!notification.isRead) {
-      markAsRead(notification.id);
+  // Mark a single notification as read
+  const markAsRead = useCallback(async (notificationId: string) => {
+    try {
+      await api.patch(`/inspection/notifications/${notificationId}/read`);
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notificationId ? { ...item, is_read: true } : item
+        )
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Failed to mark as read', error);
     }
-    
-    // Navigate based on notification type
-    if (notification.relatedType === 'inspection' && notification.relatedId) {
-      navigation.navigate('InspectionDetails', { inspectionId: notification.relatedId });
+  }, []);
+
+  // Mark all as read
+  const markAllAsRead = useCallback(async () => {
+    try {
+      await api.patch('/inspection/notifications/read-all');
+      setNotifications((prev) =>
+        prev.map((item) => ({ ...item, is_read: true }))
+      );
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Failed to mark all as read', error);
     }
-  };
+  }, []);
+
+  // Delete a notification
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    try {
+      await api.delete(`/inspection/notifications/${notificationId}`);
+      setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
+      // unreadCount will be recalculated on next refresh, but we can also decrease if needed
+    } catch (error) {
+      console.error('Failed to delete notification', error);
+    }
+  }, []);
+
+  // Handle press: mark as read (if unread) and navigate
+  const handleNotificationPress = useCallback(
+    async (notification: Notification) => {
+      if (!notification.is_read) {
+        await markAsRead(notification.id);
+      }
+      if (notification.related_type === 'inspection' && notification.related_id) {
+        navigation.navigate('InspectionDetails', {
+          inspectionId: notification.related_id,
+        });
+      }
+    },
+    [markAsRead, navigation]
+  );
+
+  // Initial load
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   return (
     <View style={styles.container}>
@@ -170,11 +237,10 @@ export const NotificationsScreen: React.FC = () => {
         )}
       </View>
 
-
       {/* Notifications List */}
       <FlatList
         data={notifications}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
           <NotificationItem
             notification={item}
@@ -184,11 +250,9 @@ export const NotificationsScreen: React.FC = () => {
           />
         )}
         contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
-          !isLoading ? (
+          !loading ? (
             <EmptyState
               icon="bell-off"
               title="No Notifications"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  Alert,
+  Linking,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -18,6 +20,7 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import api from '@/lib/api';
 
 import { RootStackParamList } from '@/navigation';
 import { useInspectionStore } from '@/store';
@@ -70,10 +73,10 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, index, onVerify }
       <Card style={styles.documentCard}>
         <View style={styles.documentHeader}>
           <View style={styles.documentIconContainer}>
-            <Icon 
-              name={document.fileType === 'pdf' ? 'file-pdf-box' : 'file-image'} 
-              size={32} 
-              color={Colors.primary} 
+            <Icon
+              name={document.fileType === 'pdf' ? 'file-pdf-box' : 'file-image'}
+              size={32}
+              color={Colors.primary}
             />
           </View>
           <View style={styles.documentInfo}>
@@ -88,14 +91,14 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, index, onVerify }
             </Text>
           </View>
           <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]}>
-            <Icon 
+            <Icon
               name={
-                document.status === 'verified' ? 'check' : 
-                document.status === 'rejected' ? 'close' : 
-                document.status === 'needs_clarification' ? 'help' : 'clock'
-              } 
-              size={16} 
-              color={Colors.textInverse} 
+                document.status === 'verified' ? 'check' :
+                  document.status === 'rejected' ? 'close' :
+                    document.status === 'needs_clarification' ? 'help' : 'clock'
+              }
+              size={16}
+              color={Colors.textInverse}
             />
           </View>
         </View>
@@ -108,11 +111,33 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ document, index, onVerify }
         )}
 
         <View style={styles.documentActions}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={async () => {
+              try {
+                const url = document.url || document.file_url;
+
+                if (!url) {
+                  Alert.alert('Error', 'Document URL not found');
+                  return;
+                }
+
+                const supported = await Linking.canOpenURL(url);
+
+                if (supported) {
+                  await Linking.openURL(url);
+                } else {
+                  Alert.alert('Error', 'Cannot open this document');
+                }
+              } catch (error) {
+                Alert.alert('Error', 'Failed to open document');
+              }
+            }}
+          >
             <Icon name="eye" size={20} color={Colors.primary} />
             <Text style={styles.actionText}>Preview</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => onVerify(document)}
           >
@@ -177,12 +202,12 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
                 <Icon
                   name={
                     status === 'verified' ? 'check-circle' :
-                    status === 'rejected' ? 'close-circle' : 'help-circle'
+                      status === 'rejected' ? 'close-circle' : 'help-circle'
                   }
                   size={20}
                   color={
                     status === 'verified' ? Colors.success :
-                    status === 'rejected' ? Colors.error : Colors.warning
+                      status === 'rejected' ? Colors.error : Colors.warning
                   }
                 />
                 <Text style={[
@@ -219,16 +244,17 @@ export const DocumentVerificationScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'DocumentVerification'>>();
   const { inspectionId } = route.params;
-  
-  const inspection = useInspectionStore(state => state.getInspectionById(inspectionId));
-  const updateDocumentStatus = useInspectionStore(state => state.updateDocumentStatus);
-  
+
+
+
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const headerOpacity = useSharedValue(0);
 
-  React.useEffect(() => {
+  useEffect(() => {
     headerOpacity.value = withTiming(1, { duration: 500 });
   }, []);
 
@@ -236,27 +262,48 @@ export const DocumentVerificationScreen: React.FC = () => {
     opacity: headerOpacity.value,
   }));
 
-  if (!inspection) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Inspection not found</Text>
-      </View>
-    );
-  }
+  const fetchDocuments = async () => {
+    try {
+      const res = await api.get(`/inspection/${inspectionId}/documents`);
+      setDocuments(res.data.documents);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const verifiedCount = inspection.documents.filter(d => d.status === 'verified').length;
-  const progress = (verifiedCount / inspection.documents.length) * 100;
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
 
   const handleVerify = (document: Document) => {
     setSelectedDocument(document);
     setModalVisible(true);
   };
 
-  const handleSubmitVerification = (status: DocumentStatus, remarks: string) => {
-    if (selectedDocument) {
-      updateDocumentStatus(inspectionId, selectedDocument.id, status, remarks);
+  const handleSubmitVerification = async (status: string, remarks: string) => {
+    if (!selectedDocument) return;
+    try {
+      await api.patch(`/inspection/${inspectionId}/documents/${selectedDocument.id}`, { status, remarks });
+      await fetchDocuments(); // refresh
+      setModalVisible(false);
+      Alert.alert('Success', 'Document status updated');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update document');
     }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Loading documents...</Text>
+      </View>
+    );
+  }
+
+  const verifiedCount = documents.filter(d => d.status === 'verified').length;
+  const progress = (verifiedCount / documents.length) * 100;
 
   return (
     <View style={styles.container}>
@@ -269,21 +316,21 @@ export const DocumentVerificationScreen: React.FC = () => {
           <Text style={styles.headerTitle}>Document Verification</Text>
           <View style={{ width: 24 }} />
         </View>
-        
+
         {/* Progress */}
         <View style={styles.progressContainer}>
           <View style={styles.progressInfo}>
             <Text style={styles.progressText}>
-              {verifiedCount} of {inspection.documents.length} verified
+              {verifiedCount} of {documents.length} verified
             </Text>
             <Text style={styles.progressPercentage}>{Math.round(progress)}%</Text>
           </View>
           <View style={styles.progressBar}>
-            <View 
+            <View
               style={[
-                styles.progressFill, 
+                styles.progressFill,
                 { width: `${progress}%` }
-              ]} 
+              ]}
             />
           </View>
         </View>
@@ -292,8 +339,8 @@ export const DocumentVerificationScreen: React.FC = () => {
       {/* Documents List */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionTitle}>Documents</Text>
-        
-        {inspection.documents.map((document, index) => (
+
+        {documents.map((document, index) => (
           <DocumentCard
             key={document.id}
             document={document}

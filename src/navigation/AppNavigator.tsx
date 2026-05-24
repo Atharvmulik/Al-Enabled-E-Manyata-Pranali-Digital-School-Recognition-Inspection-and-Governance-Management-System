@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 
 // Screens
 import { SplashScreen } from '@/screens/auth/SplashScreen';
@@ -18,6 +18,9 @@ import { FinalReportScreen } from '@/screens/inspections/FinalReportScreen';
 import { NotificationsScreen } from '@/screens/notifications/NotificationsScreen';
 import { ProfileScreen } from '@/screens/profile/ProfileScreen';
 import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
+import { CertificateScreen } from '@/screens/inspections/CertificateScreen';
+import { VerifyCertificatePage } from '@/screens/inspections/VerifyCertificatePage';
+
 
 // Store
 import { useAuthStore, useNotificationStore } from '@/store';
@@ -116,6 +119,24 @@ const MainTabNavigator: React.FC = () => {
 // Root Navigator
 export const AppNavigator: React.FC = () => {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isHydrated = useAuthStore(state => state.isHydrated);
+  const checkAuth = useAuthStore(state => state.checkAuth);
+
+  useEffect(() => {
+    // Validate stored token on every app launch before rendering any screen.
+    // This sets isHydrated=true when done, which lets the navigator render.
+    checkAuth();
+  }, []);
+
+  // Show a blank loading screen while the token check is in progress.
+  // This prevents any flash of the wrong screen (e.g. Dashboard before auth check).
+  if (!isHydrated) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>
@@ -165,6 +186,8 @@ export const AppNavigator: React.FC = () => {
               component={EditProfileScreen}
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="Certificate" component={CertificateScreen} />
+            <Stack.Screen name="VerifyCertificate" component={VerifyCertificatePage} />
           </>
         )}
       </Stack.Navigator>
@@ -173,6 +196,12 @@ export const AppNavigator: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+  },
   tabBar: {
     backgroundColor: Colors.surface,
     borderTopWidth: 0,

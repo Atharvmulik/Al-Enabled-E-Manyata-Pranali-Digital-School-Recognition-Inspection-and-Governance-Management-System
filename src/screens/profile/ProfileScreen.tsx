@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,16 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
   withSpring,
+  withTiming,
   withDelay,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -24,6 +26,7 @@ import { RootStackParamList } from '@/navigation';
 import { useAuthStore, useAppStore } from '@/store';
 import { Card, Button } from '@/components';
 import { Colors, Spacing, BorderRadius, Typography } from '@/theme';
+import api from '@/lib/api'; // your axios instance
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
@@ -79,8 +82,34 @@ const MenuItem: React.FC<MenuItemProps> = ({
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await api.get('/inspection/user');
+      setProfile(response.data);
+    } catch (error: any) {
+      console.error('Failed to fetch profile:', error);
+      Alert.alert('Error', error.response?.data?.detail || 'Could not load profile');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProfile();
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -110,44 +139,66 @@ export const ProfileScreen: React.FC = () => {
     opacity: headerOpacity.value,
   }));
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text>Unable to load profile. Pull to refresh.</Text>
+        <Button title="Retry" onPress={fetchProfile} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Profile Header */}
       <LinearGradient
         colors={[Colors.primary, Colors.primaryDark]}
         style={styles.header}
       >
         <AnimatedView style={[styles.headerContent, headerAnimatedStyle]}>
-
           {/* Profile Image */}
           <View style={styles.profileImageContainer}>
-            {user?.profileImage ? (
-              <Image source={{ uri: user.profileImage }} style={styles.profileImage} />
+            {profile.profile_image ? (
+              <Image source={{ uri: profile.profile_image }} style={styles.profileImage} />
             ) : (
               <View style={styles.profileImagePlaceholder}>
                 <Icon name="account" size={48} color={Colors.textInverse} />
               </View>
             )}
-            <TouchableOpacity style={styles.editImageButton}>
+            <TouchableOpacity
+              style={styles.editImageButton}
+              onPress={() => navigation.navigate('EditProfile')}
+            >
               <Icon name="camera" size={16} color={Colors.textInverse} />
             </TouchableOpacity>
           </View>
 
-          {/* User Info */}
-          <Text style={styles.userName}>{user?.name}</Text>
-          <Text style={styles.userRole}>{user?.department}</Text>
-          
+          <Text style={styles.userName}>{profile.name}</Text>
+          <Text style={styles.userRole}>{profile.department}</Text>
+
           <View style={styles.badgeContainer}>
             <View style={styles.badge}>
               <Icon name="shield-check" size={14} color={Colors.accent} />
-              <Text style={styles.badgeText}>{user?.badgeNumber}</Text>
+              <Text style={styles.badgeText}>{profile.badge_number}</Text>
             </View>
           </View>
         </AnimatedView>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Account Section */}
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+        }
+      >
         <Text style={styles.sectionTitle}>Account</Text>
         <MenuItem
           icon="account-edit"
@@ -158,31 +209,18 @@ export const ProfileScreen: React.FC = () => {
         <MenuItem
           icon="email"
           label="Email"
-          value={user?.email}
+          value={profile.email}
           showArrow={false}
           delay={50}
         />
         <MenuItem
           icon="phone"
           label="Phone"
-          value={user?.phone}
+          value={profile.mobile_number}
           showArrow={false}
           delay={100}
         />
 
-
-
-        {/* Security Section */}
-        <Text style={styles.sectionTitle}>Security</Text>
-        <MenuItem
-          icon="lock-reset"
-          label="Change Password"
-          onPress={() => {}}
-          delay={250}
-        />
-
-
-        {/* Logout Button */}
         <Button
           title="Logout"
           onPress={handleLogout}
@@ -190,9 +228,7 @@ export const ProfileScreen: React.FC = () => {
           style={styles.logoutButton}
         />
 
-        {/* App Version */}
         <Text style={styles.versionText}>Version 1.0.0 (Build 2024.1)</Text>
-
         <View style={styles.bottomPadding} />
       </ScrollView>
     </View>
@@ -204,6 +240,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     paddingTop: 50,
     paddingBottom: Spacing.xl,
@@ -213,12 +253,6 @@ const styles = StyleSheet.create({
   headerContent: {
     alignItems: 'center',
     position: 'relative',
-  },
-  settingsButton: {
-    position: 'absolute',
-    top: 0,
-    right: Spacing.lg,
-    padding: Spacing.sm,
   },
   profileImageContainer: {
     position: 'relative',

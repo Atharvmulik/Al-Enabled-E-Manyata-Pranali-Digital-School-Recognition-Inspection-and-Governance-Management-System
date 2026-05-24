@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Animated, {
   useSharedValue,
@@ -19,21 +19,20 @@ import Animated, {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { RootStackParamList } from '@/navigation';
-import { useInspectionStore } from '@/store';
 import { Card, StatusBadge, Input, EmptyState } from '@/components';
 import { Colors, Spacing, BorderRadius, Typography } from '@/theme';
-import { Inspection, InspectionStatus, PriorityLevel } from '@/types';
+import api from '@/lib/api';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-const statusFilters: { label: string; value: InspectionStatus | 'all' }[] = [
+const statusFilters: { label: string; value: string }[] = [
   { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'pending' },
+  { label: 'Scheduled', value: 'scheduled' },
   { label: 'In Progress', value: 'in_progress' },
   { label: 'Completed', value: 'completed' },
 ];
 
-const priorityFilters: { label: string; value: PriorityLevel | 'all' }[] = [
+const priorityFilters: { label: string; value: string }[] = [
   { label: 'All Priorities', value: 'all' },
   { label: 'Urgent', value: 'urgent' },
   { label: 'High', value: 'high' },
@@ -41,10 +40,7 @@ const priorityFilters: { label: string; value: PriorityLevel | 'all' }[] = [
   { label: 'Low', value: 'low' },
 ];
 
-const InspectionItem: React.FC<{ inspection: Inspection; index: number }> = ({
-  inspection,
-  index,
-}) => {
+const InspectionItem: React.FC<{ inspection: any; index: number }> = ({ inspection, index }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const translateY = useSharedValue(20);
   const opacity = useSharedValue(0);
@@ -79,10 +75,10 @@ const InspectionItem: React.FC<{ inspection: Inspection; index: number }> = ({
         <View style={styles.inspectionHeader}>
           <View style={styles.schoolInfo}>
             <Text style={styles.schoolName} numberOfLines={1}>
-              {inspection.school.name}
+              {inspection.school_name}
             </Text>
             <Text style={styles.schoolLocation}>
-              {inspection.school.city}, {inspection.school.state}
+              {inspection.district}, {inspection.state}
             </Text>
           </View>
           <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor() }]}>
@@ -92,21 +88,16 @@ const InspectionItem: React.FC<{ inspection: Inspection; index: number }> = ({
 
         <View style={styles.inspectionMeta}>
           <View style={styles.metaItem}>
-            <Icon name="calendar" size={16} color={Colors.textMuted} />
-            <Text style={styles.metaText}>
-            </Text>
-          </View>
-          <View style={styles.metaItem}>
             <Icon name="file-document" size={16} color={Colors.textMuted} />
             <Text style={styles.metaText}>
-              {inspection.documents.filter(d => d.status === 'verified').length}/{inspection.documents.length} docs
+              {inspection.verified_documents}/{inspection.total_documents} docs
             </Text>
           </View>
         </View>
 
         <View style={styles.inspectionFooter}>
           <StatusBadge status={inspection.status} />
-          {inspection.isOverdue && (
+          {inspection.is_overdue && (
             <View style={styles.overdueBadge}>
               <Icon name="alert-circle" size={12} color={Colors.error} />
               <Text style={styles.overdueText}>Overdue</Text>
@@ -120,31 +111,40 @@ const InspectionItem: React.FC<{ inspection: Inspection; index: number }> = ({
 
 export const InspectionsScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const { inspections, isLoading, fetchInspections } = useInspectionStore();
-
+  const [inspections, setInspections] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<InspectionStatus | 'all'>('all');
-  const [selectedPriority, setSelectedPriority] = useState<PriorityLevel | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const onRefresh = useCallback(async () => {
+  const fetchInspections = async () => {
+    try {
+      const queryParams: Record<string, any> = {};
+      if (searchQuery) queryParams.search = searchQuery;
+      if (selectedStatus !== 'all') queryParams.status = selectedStatus;
+      if (selectedPriority !== 'all') queryParams.priority = selectedPriority;
+      const response = await api.get('/inspection/inspections', { params: queryParams });
+      setInspections(response.data.inspections ?? []);
+    } catch (error) {
+      console.error('Failed to load inspections', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchInspections();
+    }, [searchQuery, selectedStatus, selectedPriority])
+  );
+
+  const onRefresh = () => {
     setRefreshing(true);
-    await fetchInspections();
-    setRefreshing(false);
-  }, [fetchInspections]);
-
-  const filteredInspections = inspections.filter(inspection => {
-    const matchesSearch =
-      inspection.school.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inspection.school.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inspection.id.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = selectedStatus === 'all' || inspection.status === selectedStatus;
-    const matchesPriority = selectedPriority === 'all' || inspection.priority === selectedPriority;
-
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+    fetchInspections();
+  };
 
   const renderFilterChips = () => (
     <View style={styles.filterSection}>
@@ -192,24 +192,33 @@ export const InspectionsScreen: React.FC = () => {
     </View>
   );
 
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Inspections</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.listContent}>
+          {[1, 2, 3].map(i => (
+            <Card key={i} style={styles.inspectionItem}>
+              <View style={{ height: 80 }} />
+            </Card>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Inspections</Text>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowFilters(!showFilters)}
-        >
-          <Icon
-            name={showFilters ? 'filter-variant-minus' : 'filter-variant'}
-            size={24}
-            color={Colors.primary}
-          />
+        <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilters(!showFilters)}>
+          <Icon name={showFilters ? 'filter-variant-minus' : 'filter-variant'} size={24} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
           <Icon name="magnify" size={20} color={Colors.textMuted} />
@@ -222,29 +231,20 @@ export const InspectionsScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Filters */}
       {showFilters && renderFilterChips()}
 
-      {/* Results Count */}
       <View style={styles.resultsHeader}>
-        <Text style={styles.resultsText}>
-          {filteredInspections.length} inspection{filteredInspections.length !== 1 ? 's' : ''}
-        </Text>
+        <Text style={styles.resultsText}>{inspections.length} inspection{inspections.length !== 1 ? 's' : ''}</Text>
       </View>
 
-      {/* Inspections List */}
       <FlatList
-        data={filteredInspections}
+        data={inspections}
         keyExtractor={item => item.id}
-        renderItem={({ item, index }) => (
-          <InspectionItem inspection={item} index={index} />
-        )}
+        renderItem={({ item, index }) => <InspectionItem inspection={item} index={index} />}
         contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
-          !isLoading ? (
+          !loading ? (
             <EmptyState
               icon="clipboard-search"
               title="No Inspections Found"
@@ -264,166 +264,36 @@ export const InspectionsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 50,
-    paddingBottom: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  headerTitle: {
-    fontSize: Typography.sizes['2xl'],
-    fontWeight: Typography.weights.bold,
-    color: Colors.text,
-  },
-  filterButton: {
-    padding: Spacing.sm,
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.md,
-  },
-  searchContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.surface,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    marginBottom: 0,
-    marginLeft: Spacing.sm,
-  },
-  filterSection: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  filterLabel: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.medium,
-    color: Colors.textSecondary,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  filterChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  filterChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterChipText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.text,
-  },
-  filterChipTextActive: {
-    color: Colors.textInverse,
-    fontWeight: Typography.weights.medium,
-  },
-  resultsHeader: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  resultsText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textSecondary,
-  },
-  listContent: {
-    padding: Spacing.lg,
-    paddingTop: 0,
-    flexGrow: 1,
-  },
-  inspectionItem: {
-    marginBottom: Spacing.md,
-  },
-  inspectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.md,
-  },
-  schoolInfo: {
-    flex: 1,
-    marginRight: Spacing.sm,
-  },
-  schoolName: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-    color: Colors.text,
-  },
-  schoolLocation: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  priorityBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontWeight: Typography.weights.bold,
-    color: Colors.textInverse,
-  },
-  inspectionMeta: {
-    flexDirection: 'row',
-    marginBottom: Spacing.md,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: Spacing.lg,
-  },
-  metaText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textSecondary,
-    marginLeft: Spacing.xs,
-  },
-  inspectionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  overdueBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.errorLight,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-  },
-  overdueText: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.error,
-    marginLeft: 4,
-    fontWeight: Typography.weights.medium,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingTop: 50, paddingBottom: Spacing.md, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  headerTitle: { fontSize: Typography.sizes['2xl'], fontWeight: Typography.weights.bold, color: Colors.text },
+  filterButton: { padding: Spacing.sm, backgroundColor: Colors.background, borderRadius: BorderRadius.md },
+  searchContainer: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, backgroundColor: Colors.surface },
+  searchInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md },
+  searchInput: { flex: 1, marginBottom: 0, marginLeft: Spacing.sm },
+  filterSection: { backgroundColor: Colors.surface, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  filterLabel: { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.medium, color: Colors.textSecondary, marginTop: Spacing.md, marginBottom: Spacing.xs },
+  filterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  filterChip: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, backgroundColor: Colors.background, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: Colors.border },
+  filterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  filterChipText: { fontSize: Typography.sizes.sm, color: Colors.text },
+  filterChipTextActive: { color: Colors.textInverse, fontWeight: Typography.weights.medium },
+  resultsHeader: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+  resultsText: { fontSize: Typography.sizes.sm, color: Colors.textSecondary },
+  listContent: { padding: Spacing.lg, paddingTop: 0, flexGrow: 1 },
+  inspectionItem: { marginBottom: Spacing.md },
+  inspectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
+  schoolInfo: { flex: 1, marginRight: Spacing.sm },
+  schoolName: { fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold, color: Colors.text },
+  schoolLocation: { fontSize: Typography.sizes.sm, color: Colors.textSecondary, marginTop: 2 },
+  priorityBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.sm },
+  priorityText: { fontSize: 10, fontWeight: Typography.weights.bold, color: Colors.textInverse },
+  inspectionMeta: { flexDirection: 'row', marginBottom: Spacing.md },
+  metaItem: { flexDirection: 'row', alignItems: 'center', marginRight: Spacing.lg },
+  metaText: { fontSize: Typography.sizes.sm, color: Colors.textSecondary, marginLeft: Spacing.xs },
+  inspectionFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  overdueBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.errorLight, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: BorderRadius.sm },
+  overdueText: { fontSize: Typography.sizes.xs, color: Colors.error, marginLeft: 4, fontWeight: Typography.weights.medium },
 });
 
 export default InspectionsScreen;

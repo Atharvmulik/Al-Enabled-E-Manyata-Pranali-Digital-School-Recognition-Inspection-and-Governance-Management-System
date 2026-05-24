@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -16,21 +17,17 @@ import Animated, {
   withTiming,
   withSpring,
   withDelay,
-  interpolate,
-  useAnimatedProps,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { RootStackParamList } from '@/navigation';
-import { useAuthStore, useInspectionStore, useNotificationStore } from '@/store';
 import { Card, StatusBadge, Shimmer } from '@/components';
-import { Colors, Spacing, BorderRadius, Typography } from '@/theme';
-import { Inspection } from '@/types';
+import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/theme';
+import api from '@/lib/api';
 
 const { width } = Dimensions.get('window');
 
-const AnimatedText = Animated.createAnimatedComponent(Text);
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 // Count-up animation component
@@ -38,17 +35,6 @@ const AnimatedNumber: React.FC<{ value: number; duration?: number }> = ({
   value, 
   duration = 1000 
 }) => {
-  const animatedValue = useSharedValue(0);
-
-  useEffect(() => {
-    animatedValue.value = withTiming(value, { duration });
-  }, [value]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    text: Math.round(animatedValue.value).toString(),
-  }));
-
-  // For simplicity, using regular text with animation
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -58,16 +44,13 @@ const AnimatedNumber: React.FC<{ value: number; duration?: number }> = ({
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-      
       setDisplayValue(Math.round(progress * value));
-
       if (progress < 1) {
         animationFrame = requestAnimationFrame(animate);
       }
     };
 
     animationFrame = requestAnimationFrame(animate);
-
     return () => cancelAnimationFrame(animationFrame);
   }, [value, duration]);
 
@@ -142,7 +125,7 @@ const StatCard: React.FC<StatCardProps> = ({
 };
 
 // Inspection Card Component
-const InspectionCard: React.FC<{ inspection: Inspection; index: number }> = ({
+const InspectionCard: React.FC<{ inspection: any; index: number }> = ({
   inspection,
   index,
 }) => {
@@ -180,10 +163,10 @@ const InspectionCard: React.FC<{ inspection: Inspection; index: number }> = ({
         <View style={styles.inspectionHeader}>
           <View style={styles.schoolInfo}>
             <Text style={styles.schoolName} numberOfLines={1}>
-              {inspection.school.name}
+              {inspection.school_name}
             </Text>
             <Text style={styles.schoolLocation}>
-              {inspection.school.city}, {inspection.school.state}
+              {inspection.district}, {inspection.state}
             </Text>
           </View>
           <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor() }]} />
@@ -193,20 +176,20 @@ const InspectionCard: React.FC<{ inspection: Inspection; index: number }> = ({
           <View style={styles.detailRow}>
             <Icon name="calendar" size={16} color={Colors.textMuted} />
             <Text style={styles.detailText}>
-              Due: {new Date(inspection.dueDate).toLocaleDateString()}
+              Due: {new Date(inspection.due_date).toLocaleDateString()}
             </Text>
           </View>
           <View style={styles.detailRow}>
             <Icon name="file-document" size={16} color={Colors.textMuted} />
             <Text style={styles.detailText}>
-              {inspection.documents.filter(d => d.status === 'verified').length} / {inspection.documents.length} docs verified
+              {inspection.verified_documents} / {inspection.total_documents} docs verified
             </Text>
           </View>
         </View>
 
         <View style={styles.inspectionFooter}>
           <StatusBadge status={inspection.status} />
-          {inspection.isOverdue && (
+          {inspection.is_overdue && (
             <View style={styles.overdueBadge}>
               <Icon name="alert-circle" size={12} color={Colors.error} />
               <Text style={styles.overdueText}>Overdue</Text>
@@ -220,29 +203,40 @@ const InspectionCard: React.FC<{ inspection: Inspection; index: number }> = ({
 
 export const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const user = useAuthStore(state => state.user);
-  const { inspections, isLoading, fetchInspections, getStatistics } = useInspectionStore();
-  const unreadCount = useNotificationStore(state => state.getUnreadCount());
-  
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
+  const [error, setError] = useState('');
 
-  const stats = getStatistics();
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching dashboard...');
+      const response = await api.get('/inspection/dashboard');
+      console.log('Dashboard response:', response.data);
+      setDashboardData(response.data);
+      setError('');
+    } catch (err: any) {
+      console.log('Dashboard error:', err);
+      console.log('Dashboard error response:', err?.response?.data);
+      console.log('Dashboard error status:', err?.response?.status);
+      const message = err?.response?.data?.detail || 'Failed to load dashboard';
+      setError(message);
+      Alert.alert('Error', message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchInspections();
+    await fetchDashboard();
     setRefreshing(false);
-  }, [fetchInspections]);
-
-  const filteredInspections = inspections
-    .filter(i => 
-      i.status !== 'completed' && 
-      i.status !== 'approved' && 
-      i.status !== 'rejected'
-    )
-    .slice(0, 5);
+  }, []);
 
   const headerOpacity = useSharedValue(0);
   const headerTranslateY = useSharedValue(-20);
@@ -257,6 +251,40 @@ export const DashboardScreen: React.FC = () => {
     transform: [{ translateY: headerTranslateY.value }],
   }));
 
+  if (loading && !dashboardData) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
+          <View style={styles.headerContent}>
+            <Shimmer width="60%" height={24} borderRadius={4} style={{ marginBottom: 8 }} />
+            <Shimmer width="40%" height={20} borderRadius={4} />
+          </View>
+        </LinearGradient>
+        <View style={styles.content}>
+          <Shimmer width="100%" height={120} borderRadius={BorderRadius.lg} style={{ margin: Spacing.lg }} />
+          <Shimmer width="100%" height={120} borderRadius={BorderRadius.lg} style={{ marginHorizontal: Spacing.lg, marginBottom: Spacing.md }} />
+        </View>
+      </View>
+    );
+  }
+
+  if (error && !dashboardData) {
+    return (
+      <View style={styles.errorContainer}>
+        <Icon name="alert-circle-outline" size={64} color={Colors.error} />
+        <Text style={styles.errorTitle}>Unable to load dashboard</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchDashboard}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const inspector = dashboardData?.inspector || {};
+  const stats = dashboardData?.stats || { total: 0, pending: 0, completed: 0, overdue: 0, high_priority: 0, unread_notifications: 0 };
+  const recentInspections = dashboardData?.recent_inspections || [];
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -268,17 +296,17 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.headerTop}>
             <View>
               <Text style={styles.greeting}>Welcome back,</Text>
-              <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'Inspector'}</Text>
+              <Text style={styles.userName}>{inspector.name?.split(' ')[0] || 'Inspector'}</Text>
             </View>
             <TouchableOpacity
               style={styles.notificationButton}
               onPress={() => navigation.navigate('Main', { screen: 'Notifications' })}
             >
               <Icon name="bell" size={24} color={Colors.textInverse} />
-              {unreadCount > 0 && (
+              {stats.unread_notifications > 0 && (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {stats.unread_notifications > 9 ? '9+' : stats.unread_notifications}
                   </Text>
                 </View>
               )}
@@ -332,7 +360,7 @@ export const DashboardScreen: React.FC = () => {
         </View>
 
         {/* Alerts Section */}
-        {(stats.overdue > 0 || stats.highPriority > 0) && (
+        {(stats.overdue > 0 || stats.high_priority > 0) && (
           <View style={styles.alertsContainer}>
             {stats.overdue > 0 && (
               <TouchableOpacity style={styles.alertCard}>
@@ -346,14 +374,14 @@ export const DashboardScreen: React.FC = () => {
                 <Icon name="chevron-right" size={24} color={Colors.textMuted} />
               </TouchableOpacity>
             )}
-            {stats.highPriority > 0 && (
+            {stats.high_priority > 0 && (
               <TouchableOpacity style={styles.alertCard}>
                 <View style={[styles.alertIcon, { backgroundColor: Colors.warningLight }]}>
                   <Icon name="flag" size={24} color={Colors.warning} />
                 </View>
                 <View style={styles.alertContent}>
                   <Text style={styles.alertTitle}>High Priority</Text>
-                  <Text style={styles.alertCount}>{stats.highPriority} flagged inspections</Text>
+                  <Text style={styles.alertCount}>{stats.high_priority} flagged inspections</Text>
                 </View>
                 <Icon name="chevron-right" size={24} color={Colors.textMuted} />
               </TouchableOpacity>
@@ -370,20 +398,20 @@ export const DashboardScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {isLoading ? (
+          {loading ? (
             <View style={styles.shimmerContainer}>
               <Shimmer width="100%" height={120} borderRadius={BorderRadius.lg} style={styles.shimmerItem} />
               <Shimmer width="100%" height={120} borderRadius={BorderRadius.lg} style={styles.shimmerItem} />
               <Shimmer width="100%" height={120} borderRadius={BorderRadius.lg} style={styles.shimmerItem} />
             </View>
-          ) : filteredInspections.length === 0 ? (
+          ) : recentInspections.length === 0 ? (
             <Card style={styles.emptyCard}>
               <Icon name="clipboard-check-outline" size={48} color={Colors.textMuted} />
               <Text style={styles.emptyTitle}>No Active Inspections</Text>
               <Text style={styles.emptyText}>You're all caught up!</Text>
             </Card>
           ) : (
-            filteredInspections.map((inspection, index) => (
+            recentInspections.map((inspection: any, index: number) => (
               <InspectionCard
                 key={inspection.id}
                 inspection={inspection}
@@ -647,8 +675,36 @@ const styles = StyleSheet.create({
   bottomPadding: {
     height: Spacing.xxl,
   },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+    backgroundColor: Colors.background,
+  },
+  errorTitle: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
+    color: Colors.text,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+  },
+  retryButton: {
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  retryButtonText: {
+    color: Colors.textInverse,
+    fontWeight: Typography.weights.medium,
+  },
 });
-
-import { Shadows } from '@/theme';
 
 export default DashboardScreen;

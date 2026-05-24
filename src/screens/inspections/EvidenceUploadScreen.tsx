@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,9 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -19,16 +20,20 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import axios from 'axios';
+import { API_BASE_URL } from '@/lib/api';   // already present, but unused
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { RootStackParamList } from '@/navigation';
-import { useInspectionStore } from '@/store';
 import { Card, Button } from '@/components';
 import { Colors, Spacing, BorderRadius, Typography } from '@/theme';
-import { Evidence, EvidenceTag } from '@/types';
+import api from '@/lib/api';
 
+// Replace with your actual backend base URL (same as used in the app)
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-const evidenceTags: { value: EvidenceTag; label: string; icon: string }[] = [
+const evidenceTags: { value: string; label: string; icon: string }[] = [
   { value: 'classroom', label: 'Classroom', icon: 'desk' },
   { value: 'lab', label: 'Laboratory', icon: 'flask' },
   { value: 'safety', label: 'Safety', icon: 'shield-check' },
@@ -38,8 +43,19 @@ const evidenceTags: { value: EvidenceTag; label: string; icon: string }[] = [
   { value: 'other', label: 'Other', icon: 'image' },
 ];
 
+interface EvidenceItem {
+  id: string;
+  type: string;
+  url: string;
+  tag: string;
+  description: string;
+  captured_at: string;
+  captured_by: string;
+  file_size: number;
+}
+
 interface EvidenceItemProps {
-  evidence: Evidence;
+  evidence: EvidenceItem;
   index: number;
   onPress: () => void;
   onDelete: () => void;
@@ -84,10 +100,9 @@ const EvidenceItem: React.FC<EvidenceItemProps> = ({ evidence, index, onPress, o
   );
 };
 
-// Preview Modal
 interface PreviewModalProps {
   visible: boolean;
-  evidence: Evidence | null;
+  evidence: EvidenceItem | null;
   onClose: () => void;
 }
 
@@ -95,12 +110,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ visible, evidence, onClose 
   if (!evidence) return null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <TouchableOpacity style={styles.modalCloseArea} onPress={onClose} />
         <View style={styles.modalContent}>
@@ -108,7 +118,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ visible, evidence, onClose 
           <View style={styles.previewInfo}>
             <Text style={styles.previewTag}>{evidence.tag}</Text>
             <Text style={styles.previewDate}>
-              {new Date(evidence.capturedAt).toLocaleString()}
+              {new Date(evidence.captured_at).toLocaleString()}
             </Text>
           </View>
           <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
@@ -120,21 +130,15 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ visible, evidence, onClose 
   );
 };
 
-// Tag Selection Modal
 interface TagModalProps {
   visible: boolean;
-  onSelect: (tag: EvidenceTag) => void;
+  onSelect: (tag: string) => void;
   onClose: () => void;
 }
 
 const TagModal: React.FC<TagModalProps> = ({ visible, onSelect, onClose }) => {
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.tagModalContent}>
           <Text style={styles.tagModalTitle}>Select Tag</Text>
@@ -163,55 +167,186 @@ export const EvidenceUploadScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'EvidenceUpload'>>();
   const { inspectionId } = route.params;
-  
-  const inspection = useInspectionStore(state => state.getInspectionById(inspectionId));
-  const addEvidence = useInspectionStore(state => state.addEvidence);
-  const removeEvidence = useInspectionStore(state => state.removeEvidence);
 
-  const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
+  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([]);
+  const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [tagModalVisible, setTagModalVisible] = useState(false);
-  const [uploadingEvidence, setUploadingEvidence] = useState<Evidence | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [selectedMediaType, setSelectedMediaType] = useState<'photo' | 'video' | null>(null);
+  const [pendingTag, setPendingTag] = useState<string | null>(null);
 
-  if (!inspection) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Inspection not found</Text>
-      </View>
+  const fetchEvidence = async () => {
+    try {
+      const response = await api.get(`/inspection/${inspectionId}/evidence`);
+      setEvidenceList(response.data.evidence);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load evidence');
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchEvidence();
+    }, [inspectionId])
+  );
+
+
+  const uploadFile = async (
+    uri: string,
+    type: string,
+    fileName: string
+  ): Promise<string> => {
+    const token = await AsyncStorage.getItem('token');
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri,
+      type,
+      name: fileName,
+    } as any);
+
+    // ✅ Use API_BASE_URL, not the api object
+    const uploadResponse = await axios.post(
+      `${API_BASE_URL}/inspection/upload`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      }
     );
+
+    return uploadResponse.data.url;
+  };
+
+  const submitEvidence = async (type: string, url: string, fileSize: number, tag: string) => {
+    const payload = {
+      type: type === 'photo' ? 'photo' : 'video',
+      url,
+      tag,
+      description: '',
+      captured_at: new Date().toISOString(),
+      captured_by: 'Inspector',
+      file_size: fileSize,
+    };
+    await api.post(`/inspection/${inspectionId}/evidence`, payload);
+    await fetchEvidence();
+  };
+
+ const handleMediaPicked = async (
+  result: ImagePicker.ImagePickerResult,
+  mediaType: 'photo' | 'video'
+) => {
+  if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+  const asset = result.assets[0];
+  const selectedTag = pendingTag; // store current tag safely
+
+  if (!selectedTag) {
+    Alert.alert('Error', 'Please select a tag first.');
+    return;
   }
 
+  setUploading(true);
+
+  try {
+    const mimeType = mediaType === 'photo' ? 'image/jpeg' : 'video/mp4';
+
+    const uploadedUrl = await uploadFile(
+      asset.uri,
+      mimeType,
+      asset.fileName || `file.${mediaType === 'photo' ? 'jpg' : 'mp4'}`
+    );
+
+    await submitEvidence(
+      mediaType,
+      uploadedUrl,
+      asset.fileSize || 0,
+      selectedTag
+    );
+
+    setPendingTag(null);
+    setSelectedMediaType(null);
+  } catch (error: any) {
+    console.error(
+      'Full upload error:',
+      JSON.stringify({
+        response: {
+          data: error.response?.data,
+          status: error.response?.status,
+        },
+      })
+    );
+
+    let message = 'Could not upload file.';
+
+    if (error.response?.data?.detail) {
+      const detail = error.response.data.detail;
+      message = Array.isArray(detail)
+        ? detail.map((e: any) => `${e.loc?.join('.')}: ${e.msg}`).join('\n')
+        : String(detail);
+    } else if (error.request) {
+      message = 'No response from server.';
+    } else {
+      message = error.message;
+    }
+
+    Alert.alert('Upload Failed', message);
+  } finally {
+    setUploading(false);
+  }
+};
+
+  const pickMedia = async (mediaType: 'photo' | 'video', useCamera: boolean) => {
+    const options: ImagePicker.ImagePickerOptions = {
+      mediaTypes:
+        mediaType === 'photo'
+          ? ImagePicker.MediaTypeOptions.Images
+          : ImagePicker.MediaTypeOptions.Videos,
+      quality: 0.8,
+      allowsEditing: false,
+    };
+
+    let result: ImagePicker.ImagePickerResult;
+    if (useCamera) {
+      result = await ImagePicker.launchCameraAsync(options);
+    } else {
+      result = await ImagePicker.launchImageLibraryAsync(options);
+    }
+
+    if (!result.canceled && result.assets) {
+      await handleMediaPicked(result, mediaType);
+    }
+  };
+
+  const showSourcePicker = (mediaType: 'photo' | 'video') => {
+    Alert.alert(
+      `Select ${mediaType === 'photo' ? 'Photo' : 'Video'}`,
+      `Choose source for ${mediaType}`,
+      [
+        { text: 'Camera', onPress: () => pickMedia(mediaType, true) },
+        { text: 'Gallery', onPress: () => pickMedia(mediaType, false) },
+        { text: 'Cancel', style: 'cancel', onPress: () => setSelectedMediaType(null) },
+      ]
+    );
+  };
+
   const handleAddEvidence = (type: 'photo' | 'video') => {
-    // Simulate capturing/uploading evidence
+    setSelectedMediaType(type);
     setTagModalVisible(true);
   };
 
-  const handleTagSelect = (tag: EvidenceTag) => {
+  const handleTagSelect = (tag: string) => {
     setTagModalVisible(false);
-    
-    // Simulate upload with dummy data
-    const newEvidence: Omit<Evidence, 'id' | 'inspectionId'> = {
-      type: 'photo',
-      url: `https://picsum.photos/400/300?random=${Date.now()}`,
-      tag,
-      description: '',
-      capturedAt: new Date().toISOString(),
-      capturedBy: 'Inspector Rajesh Kumar',
-      fileSize: 2048000,
-      isUploaded: false,
-      uploadProgress: 0,
-    };
-
-    // Simulate upload progress
-    setUploadingEvidence({ ...newEvidence, id: 'temp', inspectionId } as Evidence);
-    
-    setTimeout(() => {
-      addEvidence(inspectionId, newEvidence);
-      setUploadingEvidence(null);
-    }, 2000);
+    setPendingTag(tag);
+    if (selectedMediaType) {
+      showSourcePicker(selectedMediaType);
+    }
   };
 
-  const handleDeleteEvidence = (evidenceId: string) => {
+  const handleDeleteEvidence = async (evidenceId: string) => {
     Alert.alert(
       'Delete Evidence',
       'Are you sure you want to delete this evidence?',
@@ -220,13 +355,20 @@ export const EvidenceUploadScreen: React.FC = () => {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => removeEvidence(inspectionId, evidenceId),
+          onPress: async () => {
+            try {
+              await api.delete(`/inspection/${inspectionId}/evidence/${evidenceId}`);
+              await fetchEvidence();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete evidence');
+            }
+          },
         },
       ]
     );
   };
 
-  const handlePreview = (evidence: Evidence) => {
+  const handlePreview = (evidence: EvidenceItem) => {
     setSelectedEvidence(evidence);
     setPreviewVisible(true);
   };
@@ -240,18 +382,16 @@ export const EvidenceUploadScreen: React.FC = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Evidence</Text>
-          <Text style={styles.headerSubtitle}>
-            {inspection.evidence.length} items
-          </Text>
+          <Text style={styles.headerSubtitle}>{evidenceList.length} items</Text>
         </View>
         <View style={{ width: 24 }} />
       </View>
 
       {/* Upload Progress */}
-      {uploadingEvidence && (
+      {uploading && (
         <View style={styles.uploadProgress}>
           <View style={styles.uploadProgressBar}>
-            <View style={[styles.uploadProgressFill, { width: '60%' }]} />
+            <View style={[styles.uploadProgressFill, { width: '100%' }]} />
           </View>
           <Text style={styles.uploadProgressText}>Uploading...</Text>
         </View>
@@ -259,7 +399,7 @@ export const EvidenceUploadScreen: React.FC = () => {
 
       {/* Evidence Grid */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {inspection.evidence.length === 0 ? (
+        {evidenceList.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Icon name="image-off" size={64} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No Evidence Yet</Text>
@@ -269,7 +409,7 @@ export const EvidenceUploadScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.grid}>
-            {inspection.evidence.map((evidence, index) => (
+            {evidenceList.map((evidence, index) => (
               <EvidenceItem
                 key={evidence.id}
                 evidence={evidence}
@@ -288,6 +428,7 @@ export const EvidenceUploadScreen: React.FC = () => {
         <TouchableOpacity
           style={[styles.actionButton, styles.photoButton]}
           onPress={() => handleAddEvidence('photo')}
+          disabled={uploading}
         >
           <Icon name="camera" size={24} color={Colors.textInverse} />
           <Text style={styles.actionButtonText}>Photo</Text>
@@ -295,6 +436,7 @@ export const EvidenceUploadScreen: React.FC = () => {
         <TouchableOpacity
           style={[styles.actionButton, styles.videoButton]}
           onPress={() => handleAddEvidence('video')}
+          disabled={uploading}
         >
           <Icon name="video" size={24} color={Colors.textInverse} />
           <Text style={styles.actionButtonText}>Video</Text>
@@ -302,18 +444,10 @@ export const EvidenceUploadScreen: React.FC = () => {
       </View>
 
       {/* Preview Modal */}
-      <PreviewModal
-        visible={previewVisible}
-        evidence={selectedEvidence}
-        onClose={() => setPreviewVisible(false)}
-      />
+      <PreviewModal visible={previewVisible} evidence={selectedEvidence} onClose={() => setPreviewVisible(false)} />
 
       {/* Tag Selection Modal */}
-      <TagModal
-        visible={tagModalVisible}
-        onSelect={handleTagSelect}
-        onClose={() => setTagModalVisible(false)}
-      />
+      <TagModal visible={tagModalVisible} onSelect={handleTagSelect} onClose={() => setTagModalVisible(false)} />
     </View>
   );
 };
@@ -556,16 +690,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: Colors.text,
     textAlign: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.background,
-  },
-  errorText: {
-    fontSize: Typography.sizes.lg,
-    color: Colors.text,
   },
 });
 

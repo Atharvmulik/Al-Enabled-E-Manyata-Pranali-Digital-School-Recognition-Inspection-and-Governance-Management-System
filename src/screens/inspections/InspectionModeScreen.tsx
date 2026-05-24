@@ -25,9 +25,9 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { RootStackParamList } from '@/navigation';
-import { useInspectionStore } from '@/store';
 import { Card } from '@/components';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/theme';
+import api from '@/lib/api';
 
 const { width } = Dimensions.get('window');
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -36,15 +36,39 @@ export const InspectionModeScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'InspectionMode'>>();
   const { inspectionId } = route.params;
-  
-  const inspection = useInspectionStore(state => state.getInspectionById(inspectionId));
-  const updateInspectionStatus = useInspectionStore(state => state.updateInspectionStatus);
+
+  const [inspection, setInspection] = useState<any>(null);
+  const [evidenceList, setEvidenceList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchInspectionDetails = async () => {
+    try {
+      const [inspectionRes, evidenceRes] = await Promise.all([
+        api.get(`/inspection/${inspectionId}`),
+        api.get(`/inspection/${inspectionId}/evidence`)
+      ]);
+      setInspection(inspectionRes.data);
+      setEvidenceList(evidenceRes.data.evidence);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load inspection data');
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Auto-activate session on mount
   useEffect(() => {
-    if (inspection && inspection.status !== 'in_progress') {
-      updateInspectionStatus(inspectionId, 'in_progress');
-    }
+    const startInspection = async () => {
+      try {
+        await api.patch(`/inspection/${inspectionId}/start`);
+        await fetchInspectionDetails();
+      } catch (error) {
+        Alert.alert('Error', 'Failed to start inspection');
+        navigation.goBack();
+      }
+    };
+    startInspection();
   }, [inspectionId]);
 
   // Pulsing animation for "Live" indicator
@@ -70,11 +94,19 @@ export const InspectionModeScreen: React.FC = () => {
     );
   }, []);
 
-
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
     opacity: pulseOpacity.value,
   }));
+
+  if (loading) {
+    return (
+      <View style={styles.errorContainer}>
+        <Icon name="alert-circle-outline" size={64} color={Colors.error} />
+        <Text style={styles.errorText}>Loading inspection...</Text>
+      </View>
+    );
+  }
 
   if (!inspection) {
     return (
@@ -152,16 +184,16 @@ export const InspectionModeScreen: React.FC = () => {
         <View style={styles.evidenceSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>Recently Captured</Text>
-            <Text style={styles.evidenceCount}>{inspection.evidence.length} Items</Text>
+            <Text style={styles.evidenceCount}>{evidenceList.length} Items</Text>
           </View>
           
-          {inspection.evidence.length > 0 ? (
+          {evidenceList.length > 0 ? (
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.evidenceList}
             >
-              {inspection.evidence.map((item, index) => (
+              {evidenceList.map((item, index) => (
                 <AnimatedView 
                   key={item.id} 
                   entering={FadeInDown.delay(index * 100)}
