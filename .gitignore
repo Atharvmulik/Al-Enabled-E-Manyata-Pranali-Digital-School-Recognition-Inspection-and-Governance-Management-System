@@ -219,3 +219,13 @@ dist/
 .parcel-cache/
 .turbo/
 .swc/
+
+
+
+
+echo "errors.txt" >> .gitignore
+echo "ts_errors.txt" >> .gitignore
+echo "tsc_errors.log" >> .gitignore
+echo "tsc_errors.txt" >> .gitignore
+echo "tsc_errors_utf8.log" >> .gitignore
+echo "*.log" >> .gitignore

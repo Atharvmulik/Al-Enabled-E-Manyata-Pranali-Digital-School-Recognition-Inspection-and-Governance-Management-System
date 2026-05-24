@@ -1,9 +1,0 @@
-﻿app/profile/page.tsx(606,13): error TS2367: This comparison appears to be unintentional because the types '"" | "Yes-1" | "No-2"' and '"2-No"' have no overlap.
-app/profile/page.tsx(608,13): error TS2322: Type '"2-No"' is not assignable to type '"" | "Yes-1" | "No-2"'.
-app/profile/page.tsx(611,13): error TS2367: This comparison appears to be unintentional because the types '"" | "Yes-1" | "No-2"' and '"2-No"' have no overlap.
-app/profile/page.tsx(612,13): error TS2322: Type '"2-No"' is not assignable to type '"" | "Yes-1" | "No-2"'.
-app/profile/page.tsx(614,13): error TS2367: This comparison appears to be unintentional because the types '"" | "Yes-1" | "No-2"' and '"2-No"' have no overlap.
-app/profile/page.tsx(6195,66): error TS2367: This comparison appears to be unintentional because the types '"" | "Yes-1" | "No-2"' and '"1-Yes"' have no overlap.
-app/profile/page.tsx(6222,66): error TS2367: This comparison appears to be unintentional because the types '"" | "Yes-1" | "No-2"' and '"1-Yes"' have no overlap.
-app/profile/page.tsx(6236,74): error TS2367: This comparison appears to be unintentional because the types '"" | "Yes-1" | "No-2"' and '"1-Yes"' have no overlap.
-app/profile/page.tsx(6266,66): error TS2367: This comparison appears to be unintentional because the types '"" | "Yes-1" | "No-2"' and '"1-Yes"' have no overlap.
