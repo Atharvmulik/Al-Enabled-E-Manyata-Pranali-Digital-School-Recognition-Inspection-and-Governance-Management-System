@@ -27,34 +27,63 @@ export default function SignupPage() {
   // ── Send OTP ──
   const handleGetOtp = async () => {
     setError(null);
-    if (!fullName || !email || !contactNumber || !schoolName || !udiseNumber || !password || !confirmPassword) {
+    setSuccess(null);
+
+    if (
+      !fullName ||
+      !email ||
+      !contactNumber ||
+      !schoolName ||
+      !udiseNumber ||
+      !password ||
+      !confirmPassword
+    ) {
       setError("Please fill in all fields before requesting OTP.");
       return;
     }
+
     if (udiseNumber.length !== 11) {
       setError("UDISE Number must be exactly 11 digits.");
       return;
     }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
+
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
+
     setSendingOtp(true);
+
     try {
+      console.log("Sending OTP...");
+
       const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? "Failed to send OTP");
+
+      console.log("OTP RESPONSE:", data);
+
+      if (!res.ok) {
+        throw new Error(data.detail ?? "Failed to send OTP");
+      }
+
       setOtpSent(true);
-      setSuccess("OTP sent to your email. Please check your inbox.");
+
+      setSuccess("OTP sent to your email successfully.");
     } catch (e) {
+      console.error(e);
+
       setError((e as Error).message);
     } finally {
       setSendingOtp(false);
@@ -167,22 +196,14 @@ export default function SignupPage() {
             <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">
               School Name
             </label>
-            <input
-              ref={(el) => (fieldRefs.current["schoolName"] = el)}
-              value={schoolName}
-              onChange={(e) => {
-                setSchoolName(e.target.value);
-                clearError(0, "schoolName");
-              }}
-              className={`border ${stepErrors[0]?.schoolName ? "border-red-500" : "border-gray-300"
-                }`}
-            />
 
-            {stepErrors[0]?.schoolName && (
-              <p className="text-red-500 text-sm">
-                {stepErrors[0].schoolName}
-              </p>
-            )}
+            <input
+              type="text"
+              placeholder="ABC Public School"
+              value={schoolName}
+              onChange={(e) => setSchoolName(e.target.value)}
+              className="w-full bg-neutral-800 border border-neutral-700 text-white placeholder:text-neutral-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           {/* UDISE Number */}
@@ -231,14 +252,20 @@ export default function SignupPage() {
             </div>
           </div>
 
-          {/* Get OTP button */}
           <button
             type="button"
             onClick={handleGetOtp}
-            disabled={sendingOtp}
-            className="w-full bg-white text-black font-semibold rounded-xl py-3 text-sm hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={sendingOtp || otpSent}
+            className={`w-full font-semibold rounded-xl py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${otpSent
+              ? "bg-emerald-600 text-white"
+              : "bg-white text-black hover:bg-neutral-100"
+              }`}
           >
-            {sendingOtp ? "Sending OTP…" : "Get OTP"}
+            {sendingOtp
+              ? "Sending OTP..."
+              : otpSent
+                ? "OTP Sent Successfully"
+                : "Get OTP"}
           </button>
 
           {/* OTP input */}

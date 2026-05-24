@@ -267,12 +267,11 @@ function DocumentViewer({
                             </div>
 
                             {isPDF ? (
-                                <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-                                    <iframe
-                                        src={`${doc.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
-                                        className="w-full border-0"
-                                        style={{ height: "70vh" }}
-                                        title={doc.name}
+                                <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden p-4 bg-slate-100">
+                                    <img
+                                        src={doc.preview_url || doc.file_url}
+                                        alt={doc.name}
+                                        className="w-full h-auto rounded-xl object-contain"
                                     />
                                 </div>
                             ) : isImage ? (
@@ -458,7 +457,7 @@ function DocumentViewer({
                     <div className="flex-1 rounded-2xl overflow-hidden border border-white/10 bg-white">
                         {isPDF ? (
                             <iframe
-                                src={`${doc.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
+                                src={doc.file_url}
                                 className="w-full h-full border-0"
                                 title={doc.name}
                             />

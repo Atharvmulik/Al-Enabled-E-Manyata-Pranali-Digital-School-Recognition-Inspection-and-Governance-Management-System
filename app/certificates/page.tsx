@@ -315,11 +315,7 @@ export default function CertificatesPage() {
                                     <QRPlaceholder />
 
                                     <div className="flex flex-col gap-2">
-                                        <button
-                                            onClick={() => handleView(cert)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors"
-                                        >
-                                            <FiEye size={14} /> View
-                                        </button>
+        
                                         <button
                                             onClick={() => handleDownload(cert)}
                                             disabled={downloadingId === cert.id}

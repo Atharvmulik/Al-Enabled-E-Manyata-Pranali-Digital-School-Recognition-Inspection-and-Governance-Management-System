@@ -7,8 +7,6 @@ import {
     XCircle,
     RotateCcw,
     AlertCircle,
-    Download,
-    Printer,
     FileText,
     Calendar,
     MapPin,
@@ -134,7 +132,6 @@ const STATUS_STYLES: Record<string, string> = {
     "Re-Inspection Required": "bg-blue-100 text-blue-700",
 };
 
-const TABS = ["All Reports", "Pending Review", "Approved", "Rejected", "Re-Inspection Required"];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API helpers
@@ -276,14 +273,7 @@ function ReportCard({ report, onClick }: { report: Report; onClick: () => void }
                             {report.id}
                         </p>
                     </div>
-                    <span
-                        className={cn(
-                            "shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide",
-                            STATUS_STYLES[report.status] ?? "bg-slate-100 text-slate-600"
-                        )}
-                    >
-                        {report.status}
-                    </span>
+                    
                 </div>
 
                 {/* Meta */}
@@ -440,31 +430,7 @@ function ReportDetail({
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm"
-                        onClick={() => window.print()}
-                    >
-                        <Printer className="w-4 h-4" /> Print
-                    </button>
-                    {report.certificateUrl ? (
-                        <a
-                            href={report.certificateUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
-                        >
-                            <Download className="w-4 h-4" /> Certificate
-                        </a>
-                    ) : (
-                        <button
-                            disabled
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-slate-300 rounded-xl cursor-not-allowed"
-                        >
-                            <Download className="w-4 h-4" /> No Certificate
-                        </button>
-                    )}
-                </div>
+
             </header>
 
             <div className="space-y-8">
@@ -673,82 +639,6 @@ function ReportDetail({
                     )}
                 </section>
 
-                {/* Admin Actions */}
-                <div className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Approve */}
-                    <motion.button
-                        whileHover={{ scale: 1.01, y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        disabled={!!actionLoading || report.status === "Approved"}
-                        onClick={() => handleAction("Approved", "approve")}
-                        className={cn(
-                            "flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm shadow-lg transition-colors",
-                            report.status === "Approved"
-                                ? "bg-emerald-100 text-emerald-400 cursor-not-allowed shadow-none"
-                                : "bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-700"
-                        )}
-                    >
-                        {actionLoading === "approve" ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <CheckCircle2 className="w-4 h-4" />
-                        )}
-                        {report.status === "Approved" ? "Already Approved" : "Approve Report"}
-                    </motion.button>
-
-                    {/* Re-Inspection */}
-                    <motion.button
-                        whileHover={{ scale: 1.01, y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        disabled={!!actionLoading || report.status === "Re-Inspection Required"}
-                        onClick={() => handleAction("Re-Inspection Required", "re-inspection")}
-                        className={cn(
-                            "flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm shadow-lg transition-colors",
-                            report.status === "Re-Inspection Required"
-                                ? "bg-amber-100 text-amber-400 cursor-not-allowed shadow-none"
-                                : "bg-amber-500 text-white shadow-amber-200 hover:bg-amber-600"
-                        )}
-                    >
-                        {actionLoading === "re-inspection" ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <RotateCcw className="w-4 h-4" />
-                        )}
-                        {report.status === "Re-Inspection Required" ? "Re-Inspection Requested" : "Request Re-Inspection"}
-                    </motion.button>
-
-                    {/* Reject */}
-                    <motion.button
-                        whileHover={{ scale: 1.01, y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        disabled={!!actionLoading || report.status === "Rejected"}
-                        onClick={() => handleAction("Rejected", "reject")}
-                        className={cn(
-                            "flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm shadow-lg transition-colors",
-                            report.status === "Rejected"
-                                ? "bg-rose-100 text-rose-400 cursor-not-allowed shadow-none"
-                                : "bg-rose-600 text-white shadow-rose-200 hover:bg-rose-700"
-                        )}
-                    >
-                        {actionLoading === "reject" ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <XCircle className="w-4 h-4" />
-                        )}
-                        {report.status === "Rejected" ? "Already Rejected" : "Reject Report"}
-                    </motion.button>
-
-                    {/* Back */}
-                    <motion.button
-                        whileHover={{ scale: 1.01, y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={onBack}
-                        className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-slate-800 text-white font-black text-sm shadow-lg shadow-slate-200 hover:bg-slate-900 transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4" /> Back to Report List
-                    </motion.button>
-                </div>
-
                 {/* Success message */}
                 <AnimatePresence>
                     {actionSuccess && (
@@ -763,10 +653,6 @@ function ReportDetail({
                         </motion.div>
                     )}
                 </AnimatePresence>
-
-                <p className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 pt-4">
-                    End of Official Document
-                </p>
             </div>
         </motion.div>
     );
@@ -783,7 +669,6 @@ function ReportListing({ onSelect }: { onSelect: (id: string) => void }) {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
-    const [selectedTab, setSelectedTab] = useState("All Reports");
 
     // Debounce search input
     useEffect(() => {
@@ -796,7 +681,6 @@ function ReportListing({ onSelect }: { onSelect: (id: string) => void }) {
         setError(null);
         try {
             const data = await fetchReports({
-                status: selectedTab === "All Reports" ? undefined : selectedTab,
                 search: debouncedSearch || undefined,
                 per_page: 50,
             });
@@ -807,7 +691,7 @@ function ReportListing({ onSelect }: { onSelect: (id: string) => void }) {
         } finally {
             setLoading(false);
         }
-    }, [selectedTab, debouncedSearch]);
+    }, [debouncedSearch]);
 
     useEffect(() => {
         loadReports();
@@ -859,23 +743,7 @@ function ReportListing({ onSelect }: { onSelect: (id: string) => void }) {
                     />
                 </div>
 
-                {/* Tabs */}
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setSelectedTab(tab)}
-                            className={cn(
-                                "shrink-0 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wide transition-all",
-                                selectedTab === tab
-                                    ? "bg-slate-900 text-white shadow"
-                                    : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
-                            )}
-                        >
-                            {tab}
-                        </button>
-                    ))}
-                </div>
+                
             </header>
 
             {/* Error */}

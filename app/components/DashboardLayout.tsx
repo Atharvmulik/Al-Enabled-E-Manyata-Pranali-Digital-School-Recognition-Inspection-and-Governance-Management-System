@@ -28,30 +28,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         </div>
 
                         {/* Right section */}
-                        <div className="flex items-center gap-4">
-                            <button className="relative p-2 rounded-lg hover:bg-neutral-100 transition-colors">
-                                <FiBell size={20} className="text-neutral-600" />
-                                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center">
-                                    3
-                                </span>
-                            </button>
-
-                            <div className="h-8 w-px bg-neutral-200" />
-
-                            <div className="flex items-center gap-3">
-                                <div className="text-right hidden sm:block">
-                                    <p className="text-sm font-semibold text-neutral-800">
-                                        Delhi Public School
-                                    </p>
-                                    <p className="text-xs text-neutral-500">
-                                        admin@dps.edu.in
-                                    </p>
-                                </div>
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white text-sm font-bold shadow-md">
-                                    <FiUser size={16} />
-                                </div>
-                            </div>
-                        </div>
+                        
                     </div>
                 </header>
 

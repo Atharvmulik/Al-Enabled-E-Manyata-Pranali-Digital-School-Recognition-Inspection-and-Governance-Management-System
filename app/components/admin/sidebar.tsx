@@ -25,8 +25,7 @@ const menuItems = [
     { name: "AI Monitoring", icon: ShieldAlert, href: "/admin/ai-monitoring" },
     { name: "Reports & Analytics", icon: BarChart3, href: "/admin/reports" },
     { name: "Notifications", icon: Bell, href: "/admin/notifications" },
-    { name: "System Settings", icon: Settings, href: "/admin/settings" },
-    { name: "Audit Logs", icon: History, href: "/admin/audit-logs" },
+    { name: "School Applications", icon: Settings, href: "/admin/settings" },
 ];
 
 export function Sidebar() {

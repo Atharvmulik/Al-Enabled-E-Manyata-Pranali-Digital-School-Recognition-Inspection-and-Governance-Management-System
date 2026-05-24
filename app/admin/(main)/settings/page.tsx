@@ -682,9 +682,7 @@ function AdminActionBar({
       >
         <ThumbsDown size={13} /> Reject
       </button>
-      <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-xs font-bold hover:bg-neutral-50 transition-all ml-auto">
-        <Download size={13} /> Download Full PDF
-      </button>
+      
     </div>
   );
 }

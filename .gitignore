@@ -1,41 +1,221 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# =============================================================================
+# E-MANYATA-PRANALI — MAIN BRANCH .gitignore
+# Next.js 16 + TypeScript + Tailwind CSS v4 + Framer Motion
+# Covers: School Portal + Admin Portal (schoolweb/)
+# =============================================================================
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# -----------------------------------------------------------------------------
+# Next.js
+# -----------------------------------------------------------------------------
+.next/
+out/
+build/
+.vercel/
+.netlify/
 
-# testing
-/coverage
+# Next.js cache
+.next/cache/
 
-# next.js
-/.next/
-/out/
+# Next.js bundle analyzer output
+.next/analyze/
 
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# -----------------------------------------------------------------------------
+# Node.js & Package Managers
+# -----------------------------------------------------------------------------
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Lock files — keep only ONE (whichever your team uses), ignore the rest
+# Uncomment the one you DON'T use:
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# -----------------------------------------------------------------------------
+# Environment Variables
+# CRITICAL: Never commit secrets, API keys, or Firebase credentials
+# -----------------------------------------------------------------------------
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env*.local
+
+# -----------------------------------------------------------------------------
+# Firebase & Google Cloud
+# -----------------------------------------------------------------------------
+serviceAccountKey.json
+firebase-credentials.json
+google-credentials.json
+*-firebase-adminsdk-*.json
+firestore.rules
+firestore.indexes.json
+.firebaserc
+firebase.json
+
+# -----------------------------------------------------------------------------
+# Cloudinary & API Secrets
+# -----------------------------------------------------------------------------
+cloudinary.config.js
+cloudinary.config.ts
+secrets.json
+secrets.ts
+secrets.js
+
+# -----------------------------------------------------------------------------
+# TypeScript
+# -----------------------------------------------------------------------------
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# -----------------------------------------------------------------------------
+# Tailwind CSS v4 / PostCSS
+# -----------------------------------------------------------------------------
+# Generated CSS output (rebuilt by PostCSS on each build)
+.tailwind-cache/
+
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+cypress/screenshots/
+cypress/videos/
+
+# -----------------------------------------------------------------------------
+# ESLint & Prettier Cache
+# -----------------------------------------------------------------------------
+.eslintcache
+.prettiercache
+.stylelintcache
+
+# -----------------------------------------------------------------------------
+# IDE & Editor Files
+# -----------------------------------------------------------------------------
+# VS Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Emacs
+*#
+.\#*
+
+# -----------------------------------------------------------------------------
+# OS Generated Files
+# -----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+lerna-debug.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# -----------------------------------------------------------------------------
+# Certificates & Keys (never commit these)
+# -----------------------------------------------------------------------------
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
 
-# vercel
-.vercel
+# -----------------------------------------------------------------------------
+# Static Export & Build Artifacts
+# -----------------------------------------------------------------------------
+/public/sitemap.xml
+/public/robots.txt
+/public/sw.js
+/public/workbox-*.js
+/public/__next/
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Storybook build
+storybook-static/
+
+# -----------------------------------------------------------------------------
+# Temporary Files
+# -----------------------------------------------------------------------------
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+
+# -----------------------------------------------------------------------------
+# Uploaded Files (local dev only — use Cloudinary/Firebase Storage in prod)
+# -----------------------------------------------------------------------------
+uploads/
+public/uploads/
+
+# -----------------------------------------------------------------------------
+# Analytics & Monitoring
+# -----------------------------------------------------------------------------
+.sentry/
+sentry.properties
+
+# -----------------------------------------------------------------------------
+# Misc
+# -----------------------------------------------------------------------------
+.cache/
+dist/
+.parcel-cache/
+.turbo/
+.swc/
